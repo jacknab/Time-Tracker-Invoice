@@ -8,11 +8,12 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDurationDecimal, formatDate } from "@/lib/format";
-import { ArrowLeft, Printer, CheckCircle2, Circle, Download } from "lucide-react";
+import { ArrowLeft, Printer, CheckCircle2, Circle, Download, FileText, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
+import React from "react";
 
 export default function InvoiceDetail() {
   const [, params] = useRoute("/invoices/:id");
@@ -51,6 +52,72 @@ export default function InvoiceDetail() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const printableRef = useRef<HTMLDivElement>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (!invoice || !printableRef.current) return;
+    setPdfLoading(true);
+    try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ]);
+
+      const node = printableRef.current;
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        windowWidth: node.scrollWidth,
+      });
+
+      const pdf = new jsPDF({ unit: "pt", format: "letter", orientation: "portrait" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 36; // 0.5"
+      const usableWidth = pageWidth - margin * 2;
+      const ratio = usableWidth / canvas.width;
+      const fullHeightPt = canvas.height * ratio;
+
+      if (fullHeightPt <= pageHeight - margin * 2) {
+        const imgData = canvas.toDataURL("image/png");
+        pdf.addImage(imgData, "PNG", margin, margin, usableWidth, fullHeightPt);
+      } else {
+        // Slice the tall canvas into page-sized chunks so each PDF page contains
+        // its own piece of the invoice (avoids stretched/blank pages).
+        const pageHeightPx = Math.floor((pageHeight - margin * 2) / ratio);
+        let yOffset = 0;
+        while (yOffset < canvas.height) {
+          const sliceHeight = Math.min(pageHeightPx, canvas.height - yOffset);
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sliceHeight;
+          const ctx = sliceCanvas.getContext("2d");
+          if (!ctx) break;
+          ctx.drawImage(
+            canvas,
+            0, yOffset, canvas.width, sliceHeight,
+            0, 0, canvas.width, sliceHeight,
+          );
+          const imgData = sliceCanvas.toDataURL("image/png");
+          pdf.addImage(imgData, "PNG", margin, margin, usableWidth, sliceHeight * ratio);
+          yOffset += sliceHeight;
+          if (yOffset < canvas.height) pdf.addPage();
+        }
+      }
+
+      const filename = `${invoice.invoiceNumber}-${invoice.clientName.replace(/\s+/g, "_")}.pdf`;
+      pdf.save(filename);
+      toast.success("PDF downloaded");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const handleExportCsv = () => {
@@ -154,14 +221,23 @@ export default function InvoiceDetail() {
           <Button variant="outline" onClick={handleExportCsv} className="gap-2">
             <Download className="w-4 h-4" /> Export CSV
           </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportPdf}
+            disabled={pdfLoading}
+            className="gap-2"
+          >
+            {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            {pdfLoading ? "Generating…" : "Download PDF"}
+          </Button>
           <Button onClick={handlePrint} className="gap-2 shadow-sm">
-            <Printer className="w-4 h-4" /> Print / PDF
+            <Printer className="w-4 h-4" /> Print
           </Button>
         </div>
       </div>
 
       {/* Printable Invoice Container */}
-      <div className="bg-white text-black p-10 md:p-16 border border-border shadow-md rounded-md print:border-none print:shadow-none print:p-0">
+      <div ref={printableRef} className="bg-white text-black p-10 md:p-16 border border-border shadow-md rounded-md print:border-none print:shadow-none print:p-0">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-16 border-b border-gray-200 pb-12">
           <div>
