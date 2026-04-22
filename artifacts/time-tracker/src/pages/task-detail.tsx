@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatDurationParts, formatDateTime } from "@/lib/format";
@@ -44,6 +46,34 @@ export default function TaskDetail() {
 
   const [description, setDescription] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
+  useEffect(() => {
+    if (task && editOpen) {
+      setEditTitle(task.title);
+      setEditDescription(task.description ?? "");
+    }
+  }, [task, editOpen]);
+
+  const handleSaveEdit = () => {
+    if (!editTitle.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    updateTaskMutation.mutate(
+      { id, data: { title: editTitle.trim(), description: editDescription.trim() } },
+      {
+        onSuccess: () => {
+          toast.success("Task updated");
+          setEditOpen(false);
+          queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
+        },
+      },
+    );
+  };
 
   const activeEntry = entries?.find(e => e.isRunning);
 
@@ -148,6 +178,9 @@ export default function TaskDetail() {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Pencil className="w-4 h-4 mr-2" /> Edit
+          </Button>
           <Button variant="outline" onClick={toggleStatus} disabled={updateTaskMutation.isPending}>
             {task.status === "completed" ? "Mark Active" : "Mark Complete"}
           </Button>
@@ -163,6 +196,41 @@ export default function TaskDetail() {
           </DropdownMenu>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-task-title">Title</Label>
+              <Input
+                id="edit-task-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Task title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-task-description">Description</Label>
+              <Textarea
+                id="edit-task-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Optional description"
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={updateTaskMutation.isPending || !editTitle.trim()}>
+              {updateTaskMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-card border border-card-border shadow-sm">
         <div className="flex flex-col">
