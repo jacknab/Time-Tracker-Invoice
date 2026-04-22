@@ -2,26 +2,28 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Time tracker and invoice generator for a freelance web developer working with one client (Tom Lam) at $8/hour.
+
+## Artifacts
+
+- `time-tracker` (web app at `/`) — React + Vite frontend
+- `api-server` (at `/api`) — Express + Drizzle backend
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- pnpm workspaces, TypeScript 5.9, Node.js 24
+- API: Express 5, OpenAPI -> Orval codegen (React Query hooks + Zod)
+- DB: PostgreSQL + Drizzle ORM
+- Frontend: React + Vite + Tailwind + wouter
+
+## Data Model
+
+- `tasks` — title, description, status (active/completed/archived)
+- `time_entries` — taskId, description, startedAt, endedAt, invoiceId
+- `invoices` — invoiceNumber, totals, status (unpaid/paid), notes
 
 ## Key Commands
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+- `pnpm run typecheck` — full typecheck
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks/schemas
+- `pnpm --filter @workspace/db run push` — push DB schema

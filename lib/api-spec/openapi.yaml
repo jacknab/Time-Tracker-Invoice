@@ -3,34 +3,472 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Time tracker and invoice generator API
 servers:
   - url: /api
     description: Base API path
 tags:
-  - name: health
-    description: Health operations
+  - name: tasks
+    description: Tasks (projects) for the client
+  - name: timeEntries
+    description: Time entries within a task
+  - name: invoices
+    description: Generated invoices
+  - name: summary
+    description: Dashboard summary
 paths:
-  /healthz:
+  /tasks:
     get:
-      operationId: healthCheck
-      tags: [health]
-      summary: Health check
-      description: Returns server health status
+      operationId: listTasks
+      tags: [tasks]
+      summary: List all tasks
       responses:
         "200":
-          description: Healthy
+          description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskWithStats"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /tasks/{id}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get a task by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskWithStats"
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Update a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /tasks/{id}/entries:
+    get:
+      operationId: listTaskEntries
+      tags: [timeEntries]
+      summary: List time entries for a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimeEntry"
+  /tasks/{id}/start:
+    post:
+      operationId: startTimer
+      tags: [timeEntries]
+      summary: Start a new timer for a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartTimerBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeEntry"
+  /entries/{entryId}/stop:
+    post:
+      operationId: stopTimer
+      tags: [timeEntries]
+      summary: Stop a running timer
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeEntry"
+  /entries/{entryId}:
+    patch:
+      operationId: updateEntry
+      tags: [timeEntries]
+      summary: Edit a time entry's description
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntryBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeEntry"
+    delete:
+      operationId: deleteEntry
+      tags: [timeEntries]
+      summary: Delete a time entry
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /entries/active:
+    get:
+      operationId: getActiveEntry
+      tags: [timeEntries]
+      summary: Get the currently running time entry, if any
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveEntryResponse"
+  /summary:
+    get:
+      operationId: getSummary
+      tags: [summary]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryResponse"
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List all invoices
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvoiceSummary"
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Generate an invoice from unbilled time entries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get an invoice with itemized line items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+    delete:
+      operationId: deleteInvoice
+      tags: [invoices]
+      summary: Delete an invoice (frees its entries)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /invoices/{id}/status:
+    patch:
+      operationId: updateInvoiceStatus
+      tags: [invoices]
+      summary: Mark invoice paid/unpaid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvoiceStatusBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+  /invoices/preview:
+    get:
+      operationId: previewInvoice
+      tags: [invoices]
+      summary: Preview unbilled entries that would be invoiced
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoicePreview"
 components:
   schemas:
-    HealthStatus:
+    Task:
       type: object
+      required: [id, title, description, status, createdAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        status:
+          type: string
+          enum: [active, completed, archived]
+        createdAt: { type: string, format: date-time }
+    TaskWithStats:
+      type: object
+      required: [id, title, description, status, createdAt, totalSeconds, unbilledSeconds, entryCount]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        status:
+          type: string
+          enum: [active, completed, archived]
+        createdAt: { type: string, format: date-time }
+        totalSeconds: { type: integer }
+        unbilledSeconds: { type: integer }
+        entryCount: { type: integer }
+    CreateTaskBody:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+    UpdateTaskBody:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        status:
+          type: string
+          enum: [active, completed, archived]
+    TimeEntry:
+      type: object
+      required: [id, taskId, description, startedAt, durationSeconds, isRunning]
+      properties:
+        id: { type: string }
+        taskId: { type: string }
+        taskTitle: { type: string }
+        description: { type: string }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time, nullable: true }
+        durationSeconds: { type: integer }
+        isRunning: { type: boolean }
+        invoiceId: { type: string, nullable: true }
+    StartTimerBody:
+      type: object
+      required: [description]
+      properties:
+        description: { type: string, minLength: 1 }
+    UpdateEntryBody:
+      type: object
+      properties:
+        description: { type: string, minLength: 1 }
+    ActiveEntryResponse:
+      type: object
+      properties:
+        entry:
+          allOf:
+            - $ref: "#/components/schemas/TimeEntry"
+          nullable: true
+    SummaryResponse:
+      type: object
+      required: [clientName, hourlyRate, totalTasks, totalSeconds, unbilledSeconds, unbilledAmount, paidAmount, outstandingAmount, recentEntries, activeEntry]
+      properties:
+        clientName: { type: string }
+        hourlyRate: { type: number }
+        totalTasks: { type: integer }
+        totalSeconds: { type: integer }
+        unbilledSeconds: { type: integer }
+        unbilledAmount: { type: number }
+        paidAmount: { type: number }
+        outstandingAmount: { type: number }
+        recentEntries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeEntry"
+        activeEntry:
+          allOf:
+            - $ref: "#/components/schemas/TimeEntry"
+          nullable: true
+    InvoiceLineItem:
+      type: object
+      required: [id, taskId, taskTitle, description, startedAt, endedAt, durationSeconds, amount]
+      properties:
+        id: { type: string }
+        taskId: { type: string }
+        taskTitle: { type: string }
+        description: { type: string }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time }
+        durationSeconds: { type: integer }
+        amount: { type: number }
+    Invoice:
+      type: object
+      required: [id, invoiceNumber, clientName, hourlyRate, status, createdAt, totalSeconds, totalAmount, lineItems]
+      properties:
+        id: { type: string }
+        invoiceNumber: { type: string }
+        clientName: { type: string }
+        hourlyRate: { type: number }
+        status:
+          type: string
+          enum: [unpaid, paid]
+        createdAt: { type: string, format: date-time }
+        paidAt: { type: string, format: date-time, nullable: true }
+        notes: { type: string }
+        totalSeconds: { type: integer }
+        totalAmount: { type: number }
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLineItem"
+    InvoiceSummary:
+      type: object
+      required: [id, invoiceNumber, clientName, status, createdAt, totalSeconds, totalAmount, lineItemCount]
+      properties:
+        id: { type: string }
+        invoiceNumber: { type: string }
+        clientName: { type: string }
+        status:
+          type: string
+          enum: [unpaid, paid]
+        createdAt: { type: string, format: date-time }
+        paidAt: { type: string, format: date-time, nullable: true }
+        totalSeconds: { type: integer }
+        totalAmount: { type: number }
+        lineItemCount: { type: integer }
+    InvoicePreview:
+      type: object
+      required: [hourlyRate, clientName, totalSeconds, totalAmount, lineItems]
+      properties:
+        clientName: { type: string }
+        hourlyRate: { type: number }
+        totalSeconds: { type: integer }
+        totalAmount: { type: number }
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLineItem"
+    CreateInvoiceBody:
+      type: object
+      properties:
+        notes: { type: string }
+    UpdateInvoiceStatusBody:
+      type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
-
+          enum: [unpaid, paid]
