@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db, invoicesTable, tasksTable, timeEntriesTable } from "@workspace/db";
 import { desc, eq, isNull } from "drizzle-orm";
-import { CLIENT_NAME, HOURLY_RATE, computeAmount } from "../lib/constants";
+import { computeAmount, getSettings } from "../lib/settings";
 import { durationSeconds } from "./tasks";
 
 const router: IRouter = Router();
 
 router.get("/summary", async (_req, res) => {
+  const settings = await getSettings();
   const tasks = await db.select().from(tasksTable);
   const entries = await db
     .select({ entry: timeEntriesTable, task: tasksTable })
@@ -42,12 +43,12 @@ router.get("/summary", async (_req, res) => {
     .map(toEntry);
 
   res.json({
-    clientName: CLIENT_NAME,
-    hourlyRate: HOURLY_RATE,
+    clientName: settings.clientName,
+    hourlyRate: settings.hourlyRate,
     totalTasks: tasks.length,
     totalSeconds,
     unbilledSeconds,
-    unbilledAmount: computeAmount(unbilledSeconds),
+    unbilledAmount: computeAmount(unbilledSeconds, settings.hourlyRate),
     paidAmount: Math.round(paidAmount * 100) / 100,
     outstandingAmount: Math.round(outstandingAmount * 100) / 100,
     recentEntries,

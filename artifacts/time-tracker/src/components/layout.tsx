@@ -1,14 +1,18 @@
 import { useLocation, Link } from "wouter";
-import { LayoutDashboard, CheckSquare, FileText } from "lucide-react";
+import { LayoutDashboard, CheckSquare, FileText, Settings as SettingsIcon } from "lucide-react";
 import { ActiveTimer } from "./active-timer";
+import { useGetSettings } from "@workspace/api-client-react";
+import { formatCurrency } from "@/lib/format";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { data: settings } = useGetSettings();
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/tasks", label: "Tasks", icon: CheckSquare },
     { href: "/invoices", label: "Invoices", icon: FileText },
+    { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 
   return (
@@ -45,10 +49,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-sidebar-border">
           <div className="bg-card rounded-md border border-card-border p-3">
             <p className="text-xs text-muted-foreground font-medium mb-1">CLIENT</p>
-            <p className="text-sm font-bold">Tom Lam</p>
+            <p className="text-sm font-bold">{settings?.clientName ?? "—"}</p>
             <div className="flex justify-between items-center mt-2">
               <span className="text-xs text-muted-foreground">Rate</span>
-              <span className="text-sm font-mono bg-accent px-1.5 rounded text-accent-foreground">$8.00/hr</span>
+              <span className="text-sm font-mono bg-accent px-1.5 rounded text-accent-foreground">
+                {settings ? `${formatCurrency(settings.hourlyRate)}/hr` : "—"}
+              </span>
             </div>
           </div>
         </div>

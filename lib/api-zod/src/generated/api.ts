@@ -8,6 +8,33 @@
 import * as zod from "zod";
 
 /**
+ * @summary Get current client and rate settings
+ */
+export const GetSettingsResponse = zod.object({
+  clientName: zod.string(),
+  hourlyRate: zod.number(),
+});
+
+/**
+ * @summary Update client name or hourly rate
+ */
+
+export const updateSettingsBodyHourlyRateExclusiveMin = 0;
+
+export const UpdateSettingsBody = zod.object({
+  clientName: zod.string().min(1).optional(),
+  hourlyRate: zod
+    .number()
+    .gt(updateSettingsBodyHourlyRateExclusiveMin)
+    .optional(),
+});
+
+export const UpdateSettingsResponse = zod.object({
+  clientName: zod.string(),
+  hourlyRate: zod.number(),
+});
+
+/**
  * @summary List all tasks
  */
 export const ListTasksResponseItem = zod.object({

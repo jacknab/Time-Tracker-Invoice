@@ -177,3 +177,15 @@ export const UpdateInvoiceStatusBodyStatus = {
 export interface UpdateInvoiceStatusBody {
   status: UpdateInvoiceStatusBodyStatus;
 }
+
+export interface Settings {
+  clientName: string;
+  hourlyRate: number;
+}
+
+export interface UpdateSettingsBody {
+  /** @minLength 1 */
+  clientName?: string;
+  /** @exclusiveMinimum 0 */
+  hourlyRate?: number;
+}

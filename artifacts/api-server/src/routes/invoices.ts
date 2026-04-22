@@ -7,15 +7,18 @@ import {
 } from "@workspace/db";
 import { zodSchemas } from "@workspace/api-zod";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
-import { CLIENT_NAME, HOURLY_RATE, computeAmount } from "../lib/constants";
+import { computeAmount, getSettings } from "../lib/settings";
 import { durationSeconds } from "./tasks";
 
 const router: IRouter = Router();
 
-function formatLineItem(row: {
-  entry: typeof timeEntriesTable.$inferSelect;
-  task: typeof tasksTable.$inferSelect;
-}) {
+function formatLineItem(
+  row: {
+    entry: typeof timeEntriesTable.$inferSelect;
+    task: typeof tasksTable.$inferSelect;
+  },
+  hourlyRate: number,
+) {
   const sec = durationSeconds(row.entry.startedAt, row.entry.endedAt);
   return {
     id: row.entry.id,
@@ -25,7 +28,7 @@ function formatLineItem(row: {
     startedAt: row.entry.startedAt.toISOString(),
     endedAt: (row.entry.endedAt ?? row.entry.startedAt).toISOString(),
     durationSeconds: sec,
-    amount: computeAmount(sec),
+    amount: computeAmount(sec, hourlyRate),
   };
 }
 
@@ -41,18 +44,19 @@ async function loadInvoice(id: string) {
     .innerJoin(tasksTable, eq(tasksTable.id, timeEntriesTable.taskId))
     .where(eq(timeEntriesTable.invoiceId, id))
     .orderBy(timeEntriesTable.startedAt);
+  const rate = Number(inv.hourlyRate);
   return {
     id: inv.id,
     invoiceNumber: inv.invoiceNumber,
     clientName: inv.clientName,
-    hourlyRate: Number(inv.hourlyRate),
+    hourlyRate: rate,
     status: inv.status,
     createdAt: inv.createdAt.toISOString(),
     paidAt: inv.paidAt ? inv.paidAt.toISOString() : null,
     notes: inv.notes,
     totalSeconds: inv.totalSeconds,
     totalAmount: Number(inv.totalAmount),
-    lineItems: rows.map(formatLineItem),
+    lineItems: rows.map((r) => formatLineItem(r, rate)),
   };
 }
 
@@ -84,6 +88,7 @@ router.get("/invoices", async (_req, res) => {
 });
 
 router.get("/invoices/preview", async (_req, res) => {
+  const settings = await getSettings();
   const rows = await db
     .select({ entry: timeEntriesTable, task: tasksTable })
     .from(timeEntriesTable)
@@ -95,22 +100,23 @@ router.get("/invoices/preview", async (_req, res) => {
       ),
     )
     .orderBy(timeEntriesTable.startedAt);
-  const lineItems = rows.map(formatLineItem);
+  const lineItems = rows.map((r) => formatLineItem(r, settings.hourlyRate));
   const totalSeconds = lineItems.reduce(
     (sum, li) => sum + li.durationSeconds,
     0,
   );
   res.json({
-    clientName: CLIENT_NAME,
-    hourlyRate: HOURLY_RATE,
+    clientName: settings.clientName,
+    hourlyRate: settings.hourlyRate,
     totalSeconds,
-    totalAmount: computeAmount(totalSeconds),
+    totalAmount: computeAmount(totalSeconds, settings.hourlyRate),
     lineItems,
   });
 });
 
 router.post("/invoices", async (req, res) => {
   const body = zodSchemas.CreateInvoiceBody.parse(req.body ?? {});
+  const settings = await getSettings();
   const rows = await db
     .select({ entry: timeEntriesTable })
     .from(timeEntriesTable)
@@ -128,15 +134,15 @@ router.post("/invoices", async (req, res) => {
     (sum, r) => sum + durationSeconds(r.entry.startedAt, r.entry.endedAt),
     0,
   );
-  const totalAmount = computeAmount(totalSeconds);
+  const totalAmount = computeAmount(totalSeconds, settings.hourlyRate);
   const count = await db.$count(invoicesTable);
   const invoiceNumber = `INV-${String(count + 1).padStart(4, "0")}`;
   const [inv] = await db
     .insert(invoicesTable)
     .values({
       invoiceNumber,
-      clientName: CLIENT_NAME,
-      hourlyRate: HOURLY_RATE.toString(),
+      clientName: settings.clientName,
+      hourlyRate: settings.hourlyRate.toString(),
       notes: body.notes ?? "",
       totalSeconds,
       totalAmount: totalAmount.toString(),

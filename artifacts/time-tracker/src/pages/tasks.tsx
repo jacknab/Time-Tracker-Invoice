@@ -15,10 +15,13 @@ function TaskCard({ task }: { task: TaskWithStats }) {
   const isCompleted = task.status === "completed";
   
   return (
-    <Link href={`/tasks/${task.id}`}>
-      <div className={`group flex flex-col p-5 border rounded-lg bg-card hover:shadow-md transition-all cursor-pointer h-full ${
+    <Link
+      href={`/tasks/${task.id}`}
+      className={`group flex flex-col p-5 border rounded-lg bg-card hover:shadow-md transition-all cursor-pointer h-full no-underline text-inherit ${
         isCompleted ? "border-muted-border opacity-70 bg-muted/20" : "border-card-border hover:border-primary/40"
-      }`}>
+      }`}
+    >
+      <div className="contents">
         <div className="flex justify-between items-start mb-3 gap-4">
           <h3 className={`font-semibold text-lg line-clamp-1 ${isCompleted ? "line-through text-muted-foreground" : "text-foreground group-hover:text-primary transition-colors"}`}>
             {task.title}

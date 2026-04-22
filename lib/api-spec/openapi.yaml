@@ -16,7 +16,38 @@ tags:
     description: Generated invoices
   - name: summary
     description: Dashboard summary
+  - name: settings
+    description: Application settings
 paths:
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get current client and rate settings
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update client name or hourly rate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
   /tasks:
     get:
       operationId: listTasks
@@ -472,3 +503,14 @@ components:
         status:
           type: string
           enum: [unpaid, paid]
+    Settings:
+      type: object
+      required: [clientName, hourlyRate]
+      properties:
+        clientName: { type: string }
+        hourlyRate: { type: number }
+    UpdateSettingsBody:
+      type: object
+      properties:
+        clientName: { type: string, minLength: 1 }
+        hourlyRate: { type: number, exclusiveMinimum: 0 }
