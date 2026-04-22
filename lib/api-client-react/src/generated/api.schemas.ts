@@ -83,6 +83,8 @@ export interface StartTimerBody {
 export interface UpdateEntryBody {
   /** @minLength 1 */
   description?: string;
+  startedAt?: string;
+  endedAt?: string;
 }
 
 export interface ActiveEntryResponse {

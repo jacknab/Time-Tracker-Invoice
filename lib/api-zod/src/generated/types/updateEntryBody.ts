@@ -9,4 +9,6 @@
 export interface UpdateEntryBody {
   /** @minLength 1 */
   description?: string;
+  startedAt?: Date;
+  endedAt?: Date;
 }

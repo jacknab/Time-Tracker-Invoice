@@ -52,6 +52,16 @@ router.patch("/entries/:entryId", async (req, res) => {
   const body = zodSchemas.UpdateEntryBody.parse(req.body);
   const updates: Record<string, unknown> = {};
   if (body.description !== undefined) updates.description = body.description;
+  if (body.startedAt !== undefined) updates.startedAt = new Date(body.startedAt);
+  if (body.endedAt !== undefined) updates.endedAt = new Date(body.endedAt);
+  if (
+    updates.startedAt instanceof Date &&
+    updates.endedAt instanceof Date &&
+    (updates.endedAt as Date).getTime() <= (updates.startedAt as Date).getTime()
+  ) {
+    res.status(400).json({ error: "End time must be after start time" });
+    return;
+  }
   await db
     .update(timeEntriesTable)
     .set(updates)

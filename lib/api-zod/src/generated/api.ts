@@ -163,6 +163,8 @@ export const UpdateEntryParams = zod.object({
 
 export const UpdateEntryBody = zod.object({
   description: zod.string().min(1).optional(),
+  startedAt: zod.coerce.date().optional(),
+  endedAt: zod.coerce.date().optional(),
 });
 
 export const UpdateEntryResponse = zod.object({

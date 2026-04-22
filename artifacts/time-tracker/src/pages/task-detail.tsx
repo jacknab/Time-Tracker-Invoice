@@ -260,25 +260,65 @@ export default function TaskDetail() {
   );
 }
 
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromLocalInput(value: string): string {
+  return new Date(value).toISOString();
+}
+
 function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
   const queryClient = useQueryClient();
   const updateEntryMutation = useUpdateEntry();
   const deleteEntryMutation = useDeleteEntry();
-  
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editDesc, setEditDesc] = useState(entry.description);
+  const [editStart, setEditStart] = useState(toLocalInput(entry.startedAt));
+  const [editEnd, setEditEnd] = useState(toLocalInput(entry.endedAt));
+
+  useEffect(() => {
+    if (isEditOpen) {
+      setEditDesc(entry.description);
+      setEditStart(toLocalInput(entry.startedAt));
+      setEditEnd(toLocalInput(entry.endedAt));
+    }
+  }, [isEditOpen, entry]);
 
   const handleUpdate = () => {
-    if (!editDesc.trim() || editDesc === entry.description) {
+    const data: { description?: string; startedAt?: string; endedAt?: string } = {};
+    if (editDesc.trim() && editDesc !== entry.description) data.description = editDesc.trim();
+    if (editStart && fromLocalInput(editStart) !== new Date(entry.startedAt).toISOString()) {
+      data.startedAt = fromLocalInput(editStart);
+    }
+    if (entry.endedAt && editEnd && fromLocalInput(editEnd) !== new Date(entry.endedAt).toISOString()) {
+      data.endedAt = fromLocalInput(editEnd);
+    }
+    if (Object.keys(data).length === 0) {
       setIsEditOpen(false);
       return;
     }
-    updateEntryMutation.mutate({ entryId: entry.id, data: { description: editDesc } }, {
+    if (data.startedAt || data.endedAt) {
+      const s = new Date(data.startedAt ?? entry.startedAt).getTime();
+      const e = new Date(data.endedAt ?? entry.endedAt).getTime();
+      if (entry.endedAt && e <= s) {
+        toast.error("End time must be after start time");
+        return;
+      }
+    }
+    updateEntryMutation.mutate({ entryId: entry.id, data }, {
       onSuccess: () => {
         toast.success("Entry updated");
         setIsEditOpen(false);
         queryClient.invalidateQueries({ queryKey: getListTaskEntriesQueryKey(taskId) });
-      }
+        queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(taskId) });
+        queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
+      },
+      onError: () => toast.error("Failed to update entry"),
     });
   };
 
@@ -325,9 +365,29 @@ function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Edit Time Entry</DialogTitle></DialogHeader>
-                <div className="py-4">
-                  <label className="text-sm font-medium mb-2 block">Description</label>
-                  <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} autoFocus />
+                <div className="py-4 space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Description</label>
+                    <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} autoFocus />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Start</label>
+                      <Input type="datetime-local" value={editStart} onChange={e => setEditStart(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">End</label>
+                      <Input
+                        type="datetime-local"
+                        value={editEnd}
+                        onChange={e => setEditEnd(e.target.value)}
+                        disabled={!entry.endedAt}
+                      />
+                      {!entry.endedAt && (
+                        <p className="text-xs text-muted-foreground mt-1">Stop the timer to set an end time.</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
