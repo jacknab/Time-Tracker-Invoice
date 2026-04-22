@@ -8,7 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDurationDecimal, formatDate } from "@/lib/format";
-import { ArrowLeft, Printer, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, Printer, CheckCircle2, Circle, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +43,66 @@ export default function InvoiceDetail() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportCsv = () => {
+    if (!invoice) return;
+    const escape = (v: string | number) => {
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = [
+      "Invoice Number",
+      "Client",
+      "Status",
+      "Issued",
+      "Task",
+      "Description",
+      "Started",
+      "Ended",
+      "Hours",
+      "Rate",
+      "Amount",
+    ];
+    const rows = invoice.lineItems.map((li) => [
+      invoice.invoiceNumber,
+      invoice.clientName,
+      invoice.status,
+      formatDate(invoice.createdAt),
+      li.taskTitle,
+      li.description,
+      new Date(li.startedAt).toISOString(),
+      new Date(li.endedAt).toISOString(),
+      (li.durationSeconds / 3600).toFixed(2),
+      invoice.hourlyRate.toFixed(2),
+      li.amount.toFixed(2),
+    ]);
+    const totalRow = [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "TOTAL",
+      "",
+      "",
+      (invoice.totalSeconds / 3600).toFixed(2),
+      "",
+      invoice.totalAmount.toFixed(2),
+    ];
+    const csv = [header, ...rows, totalRow]
+      .map((r) => r.map(escape).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${invoice.invoiceNumber}-${invoice.clientName.replace(/\s+/g, "_")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("CSV downloaded");
   };
 
   const handleToggleStatus = () => {
@@ -82,6 +142,9 @@ export default function InvoiceDetail() {
           >
             {invoice.status === 'paid' ? <Circle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
             Mark {invoice.status === 'paid' ? 'Unpaid' : 'Paid'}
+          </Button>
+          <Button variant="outline" onClick={handleExportCsv} className="gap-2">
+            <Download className="w-4 h-4" /> Export CSV
           </Button>
           <Button onClick={handlePrint} className="gap-2 shadow-sm">
             <Printer className="w-4 h-4" /> Print / PDF
