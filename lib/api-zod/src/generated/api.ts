@@ -125,6 +125,19 @@ export const ListTaskEntriesResponseItem = zod.object({
 export const ListTaskEntriesResponse = zod.array(ListTaskEntriesResponseItem);
 
 /**
+ * @summary Add a completed time entry manually
+ */
+export const CreateManualEntryParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const CreateManualEntryBody = zod.object({
+  description: zod.string().min(1),
+  startedAt: zod.coerce.date(),
+  endedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Start a new timer for a task
  */
 export const StartTimerParams = zod.object({

@@ -9,6 +9,7 @@ import {
   useDeleteEntry,
   useUpdateTask,
   useDeleteTask,
+  useCreateManualEntry,
   getGetTaskQueryKey,
   getListTaskEntriesQueryKey,
   getGetSummaryQueryKey,
@@ -22,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatDurationParts, formatDateTime } from "@/lib/format";
-import { ArrowLeft, Play, Square, MoreVertical, Pencil, Trash2, CheckCircle2, Clock } from "lucide-react";
+import { ArrowLeft, Play, Square, MoreVertical, Pencil, Trash2, CheckCircle2, Clock, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -234,7 +235,10 @@ export default function TaskDetail() {
 
       {/* Entries List */}
       <div>
-        <h3 className="text-lg font-semibold mb-4 text-foreground">Time Entries</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground">Time Entries</h3>
+          <ManualEntryButton taskId={id} disabled={task.status === "completed"} />
+        </div>
         {isEntriesLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-16 w-full" />
@@ -402,5 +406,96 @@ function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+function ManualEntryButton({ taskId, disabled }: { taskId: string; disabled?: boolean }) {
+  const queryClient = useQueryClient();
+  const createManual = useCreateManualEntry();
+  const [open, setOpen] = useState(false);
+  const [desc, setDesc] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      const now = new Date();
+      const earlier = new Date(now.getTime() - 60 * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      setDesc("");
+      setStart(fmt(earlier));
+      setEnd(fmt(now));
+    }
+  }, [open]);
+
+  const handleSave = () => {
+    if (!desc.trim() || !start || !end) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    const startedAt = new Date(start);
+    const endedAt = new Date(end);
+    if (endedAt.getTime() <= startedAt.getTime()) {
+      toast.error("End time must be after start time");
+      return;
+    }
+    createManual.mutate(
+      {
+        id: taskId,
+        data: {
+          description: desc.trim(),
+          startedAt: startedAt.toISOString(),
+          endedAt: endedAt.toISOString(),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Time entry added");
+          setOpen(false);
+          queryClient.invalidateQueries({ queryKey: getListTaskEntriesQueryKey(taskId) });
+          queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(taskId) });
+          queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
+        },
+        onError: () => toast.error("Failed to add entry"),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5" disabled={disabled}>
+          <Plus className="w-4 h-4" /> Add Manual Entry
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Add Manual Time Entry</DialogTitle></DialogHeader>
+        <div className="py-4 space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Description</label>
+            <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="What did you work on?" autoFocus />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Start</label>
+              <Input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">End</label>
+              <Input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={createManual.isPending || !desc.trim()}>
+            {createManual.isPending ? "Saving..." : "Add Entry"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

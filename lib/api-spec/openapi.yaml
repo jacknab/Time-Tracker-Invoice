@@ -149,6 +149,28 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TimeEntry"
+    post:
+      operationId: createManualEntry
+      tags: [timeEntries]
+      summary: Add a completed time entry manually
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateManualEntryBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeEntry"
   /tasks/{id}/start:
     post:
       operationId: startTimer
@@ -402,6 +424,13 @@ components:
       required: [description]
       properties:
         description: { type: string, minLength: 1 }
+    CreateManualEntryBody:
+      type: object
+      required: [description, startedAt, endedAt]
+      properties:
+        description: { type: string, minLength: 1 }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time }
     UpdateEntryBody:
       type: object
       properties:

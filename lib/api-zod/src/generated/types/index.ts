@@ -8,6 +8,7 @@
 
 export * from "./activeEntryResponse";
 export * from "./createInvoiceBody";
+export * from "./createManualEntryBody";
 export * from "./createTaskBody";
 export * from "./invoice";
 export * from "./invoiceLineItem";

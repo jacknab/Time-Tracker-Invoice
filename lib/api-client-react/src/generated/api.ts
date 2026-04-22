@@ -19,6 +19,7 @@ import type {
 import type {
   ActiveEntryResponse,
   CreateInvoiceBody,
+  CreateManualEntryBody,
   CreateTaskBody,
   Invoice,
   InvoicePreview,
@@ -690,6 +691,93 @@ export function useListTaskEntries<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Add a completed time entry manually
+ */
+export const getCreateManualEntryUrl = (id: string) => {
+  return `/api/tasks/${id}/entries`;
+};
+
+export const createManualEntry = async (
+  id: string,
+  createManualEntryBody: CreateManualEntryBody,
+  options?: RequestInit,
+): Promise<TimeEntry> => {
+  return customFetch<TimeEntry>(getCreateManualEntryUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createManualEntryBody),
+  });
+};
+
+export const getCreateManualEntryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManualEntry>>,
+    TError,
+    { id: string; data: BodyType<CreateManualEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createManualEntry>>,
+  TError,
+  { id: string; data: BodyType<CreateManualEntryBody> },
+  TContext
+> => {
+  const mutationKey = ["createManualEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createManualEntry>>,
+    { id: string; data: BodyType<CreateManualEntryBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createManualEntry(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateManualEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createManualEntry>>
+>;
+export type CreateManualEntryMutationBody = BodyType<CreateManualEntryBody>;
+export type CreateManualEntryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a completed time entry manually
+ */
+export const useCreateManualEntry = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManualEntry>>,
+    TError,
+    { id: string; data: BodyType<CreateManualEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createManualEntry>>,
+  TError,
+  { id: string; data: BodyType<CreateManualEntryBody> },
+  TContext
+> => {
+  return useMutation(getCreateManualEntryMutationOptions(options));
+};
 
 /**
  * @summary Start a new timer for a task

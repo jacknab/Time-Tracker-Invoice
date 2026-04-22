@@ -138,6 +138,44 @@ router.get("/tasks/:id/entries", async (req, res) => {
   );
 });
 
+router.post("/tasks/:id/entries", async (req, res) => {
+  const body = zodSchemas.CreateManualEntryBody.parse(req.body);
+  const startedAt = new Date(body.startedAt);
+  const endedAt = new Date(body.endedAt);
+  if (endedAt.getTime() <= startedAt.getTime()) {
+    res.status(400).json({ error: "End time must be after start time" });
+    return;
+  }
+  const [task] = await db
+    .select()
+    .from(tasksTable)
+    .where(eq(tasksTable.id, req.params.id));
+  if (!task) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+  const [entry] = await db
+    .insert(timeEntriesTable)
+    .values({
+      taskId: req.params.id,
+      description: body.description,
+      startedAt,
+      endedAt,
+    })
+    .returning();
+  res.status(201).json({
+    id: entry.id,
+    taskId: entry.taskId,
+    taskTitle: task.title,
+    description: entry.description,
+    startedAt: entry.startedAt.toISOString(),
+    endedAt: entry.endedAt!.toISOString(),
+    durationSeconds: durationSeconds(entry.startedAt, entry.endedAt),
+    isRunning: false,
+    invoiceId: null,
+  });
+});
+
 router.post("/tasks/:id/start", async (req, res) => {
   const body = zodSchemas.StartTimerBody.parse(req.body);
   const [task] = await db

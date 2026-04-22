@@ -80,6 +80,13 @@ export interface StartTimerBody {
   description: string;
 }
 
+export interface CreateManualEntryBody {
+  /** @minLength 1 */
+  description: string;
+  startedAt: string;
+  endedAt: string;
+}
+
 export interface UpdateEntryBody {
   /** @minLength 1 */
   description?: string;
