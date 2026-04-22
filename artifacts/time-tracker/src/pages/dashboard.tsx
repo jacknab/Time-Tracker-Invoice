@@ -131,7 +131,7 @@ export default function Dashboard() {
         <StatCard 
           title="Unbilled Amount" 
           value={formatCurrency(summary.unbilledAmount)} 
-          subtitle="At $8.00/hr"
+          subtitle={`At ${formatCurrency(summary.hourlyRate)}/hr`}
           icon={CircleDollarSign} 
         />
         <StatCard 
