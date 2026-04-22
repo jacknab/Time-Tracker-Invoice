@@ -5,6 +5,7 @@
  * Time tracker and invoice generator API
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoiceCredit } from "./invoiceCredit";
 import type { InvoiceLineItem } from "./invoiceLineItem";
 import type { InvoiceStatus } from "./invoiceStatus";
 
@@ -18,6 +19,9 @@ export interface Invoice {
   paidAt?: Date | null;
   notes?: string;
   totalSeconds: number;
+  subtotalAmount: number;
+  creditsAmount: number;
   totalAmount: number;
   lineItems: InvoiceLineItem[];
+  credits: InvoiceCredit[];
 }

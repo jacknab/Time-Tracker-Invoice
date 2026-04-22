@@ -353,6 +353,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+  /invoices/{id}/credits:
+    post:
+      operationId: addInvoiceCredit
+      tags: [invoices]
+      summary: Add a credit (deduction) to an invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddInvoiceCreditBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+  /invoices/{id}/credits/{creditId}:
+    delete:
+      operationId: deleteInvoiceCredit
+      tags: [invoices]
+      summary: Remove a credit from an invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: creditId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
   /invoices/preview:
     get:
       operationId: previewInvoice
@@ -480,9 +524,23 @@ components:
         durationSeconds: { type: integer }
         amount: { type: number }
         noCharge: { type: boolean }
+    InvoiceCredit:
+      type: object
+      required: [id, description, amount, createdAt]
+      properties:
+        id: { type: string }
+        description: { type: string }
+        amount: { type: number }
+        createdAt: { type: string, format: date-time }
+    AddInvoiceCreditBody:
+      type: object
+      required: [description, amount]
+      properties:
+        description: { type: string, minLength: 1 }
+        amount: { type: number, exclusiveMinimum: 0 }
     Invoice:
       type: object
-      required: [id, invoiceNumber, clientName, hourlyRate, status, createdAt, totalSeconds, totalAmount, lineItems]
+      required: [id, invoiceNumber, clientName, hourlyRate, status, createdAt, totalSeconds, subtotalAmount, creditsAmount, totalAmount, lineItems, credits]
       properties:
         id: { type: string }
         invoiceNumber: { type: string }
@@ -495,11 +553,17 @@ components:
         paidAt: { type: string, format: date-time, nullable: true }
         notes: { type: string }
         totalSeconds: { type: integer }
+        subtotalAmount: { type: number }
+        creditsAmount: { type: number }
         totalAmount: { type: number }
         lineItems:
           type: array
           items:
             $ref: "#/components/schemas/InvoiceLineItem"
+        credits:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceCredit"
     InvoiceSummary:
       type: object
       required: [id, invoiceNumber, clientName, status, createdAt, totalSeconds, totalAmount, lineItemCount]

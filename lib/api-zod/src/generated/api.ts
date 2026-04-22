@@ -306,6 +306,8 @@ export const GetInvoiceResponse = zod.object({
   paidAt: zod.coerce.date().nullish(),
   notes: zod.string().optional(),
   totalSeconds: zod.number(),
+  subtotalAmount: zod.number(),
+  creditsAmount: zod.number(),
   totalAmount: zod.number(),
   lineItems: zod.array(
     zod.object({
@@ -318,6 +320,14 @@ export const GetInvoiceResponse = zod.object({
       durationSeconds: zod.number(),
       amount: zod.number(),
       noCharge: zod.boolean(),
+    }),
+  ),
+  credits: zod.array(
+    zod.object({
+      id: zod.string(),
+      description: zod.string(),
+      amount: zod.number(),
+      createdAt: zod.coerce.date(),
     }),
   ),
 });
@@ -350,6 +360,8 @@ export const UpdateInvoiceStatusResponse = zod.object({
   paidAt: zod.coerce.date().nullish(),
   notes: zod.string().optional(),
   totalSeconds: zod.number(),
+  subtotalAmount: zod.number(),
+  creditsAmount: zod.number(),
   totalAmount: zod.number(),
   lineItems: zod.array(
     zod.object({
@@ -362,6 +374,108 @@ export const UpdateInvoiceStatusResponse = zod.object({
       durationSeconds: zod.number(),
       amount: zod.number(),
       noCharge: zod.boolean(),
+    }),
+  ),
+  credits: zod.array(
+    zod.object({
+      id: zod.string(),
+      description: zod.string(),
+      amount: zod.number(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add a credit (deduction) to an invoice
+ */
+export const AddInvoiceCreditParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const addInvoiceCreditBodyAmountExclusiveMin = 0;
+
+export const AddInvoiceCreditBody = zod.object({
+  description: zod.string().min(1),
+  amount: zod.number().gt(addInvoiceCreditBodyAmountExclusiveMin),
+});
+
+export const AddInvoiceCreditResponse = zod.object({
+  id: zod.string(),
+  invoiceNumber: zod.string(),
+  clientName: zod.string(),
+  hourlyRate: zod.number(),
+  status: zod.enum(["unpaid", "paid"]),
+  createdAt: zod.coerce.date(),
+  paidAt: zod.coerce.date().nullish(),
+  notes: zod.string().optional(),
+  totalSeconds: zod.number(),
+  subtotalAmount: zod.number(),
+  creditsAmount: zod.number(),
+  totalAmount: zod.number(),
+  lineItems: zod.array(
+    zod.object({
+      id: zod.string(),
+      taskId: zod.string(),
+      taskTitle: zod.string(),
+      description: zod.string(),
+      startedAt: zod.coerce.date(),
+      endedAt: zod.coerce.date(),
+      durationSeconds: zod.number(),
+      amount: zod.number(),
+      noCharge: zod.boolean(),
+    }),
+  ),
+  credits: zod.array(
+    zod.object({
+      id: zod.string(),
+      description: zod.string(),
+      amount: zod.number(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Remove a credit from an invoice
+ */
+export const DeleteInvoiceCreditParams = zod.object({
+  id: zod.coerce.string(),
+  creditId: zod.coerce.string(),
+});
+
+export const DeleteInvoiceCreditResponse = zod.object({
+  id: zod.string(),
+  invoiceNumber: zod.string(),
+  clientName: zod.string(),
+  hourlyRate: zod.number(),
+  status: zod.enum(["unpaid", "paid"]),
+  createdAt: zod.coerce.date(),
+  paidAt: zod.coerce.date().nullish(),
+  notes: zod.string().optional(),
+  totalSeconds: zod.number(),
+  subtotalAmount: zod.number(),
+  creditsAmount: zod.number(),
+  totalAmount: zod.number(),
+  lineItems: zod.array(
+    zod.object({
+      id: zod.string(),
+      taskId: zod.string(),
+      taskTitle: zod.string(),
+      description: zod.string(),
+      startedAt: zod.coerce.date(),
+      endedAt: zod.coerce.date(),
+      durationSeconds: zod.number(),
+      amount: zod.number(),
+      noCharge: zod.boolean(),
+    }),
+  ),
+  credits: zod.array(
+    zod.object({
+      id: zod.string(),
+      description: zod.string(),
+      amount: zod.number(),
+      createdAt: zod.coerce.date(),
     }),
   ),
 });

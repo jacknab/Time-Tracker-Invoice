@@ -2,13 +2,18 @@ import { useRoute, Link } from "wouter";
 import { 
   useGetInvoice, 
   useUpdateInvoiceStatus,
+  useAddInvoiceCredit,
+  useDeleteInvoiceCredit,
   getGetInvoiceQueryKey,
   getListInvoicesQueryKey,
   getGetSummaryQueryKey
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatCurrency, formatDurationDecimal, formatDate } from "@/lib/format";
-import { ArrowLeft, Printer, CheckCircle2, Circle, Download, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Printer, CheckCircle2, Circle, Download, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +27,57 @@ export default function InvoiceDetail() {
 
   const { data: invoice, isLoading } = useGetInvoice(id, { query: { enabled: !!id, queryKey: getGetInvoiceQueryKey(id) } });
   const updateStatusMutation = useUpdateInvoiceStatus();
+  const addCreditMutation = useAddInvoiceCredit();
+  const deleteCreditMutation = useDeleteInvoiceCredit();
+
+  const [creditOpen, setCreditOpen] = useState(false);
+  const [creditDescription, setCreditDescription] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+
+  const refreshInvoice = () => {
+    queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
+  };
+
+  const handleAddCredit = () => {
+    const amount = parseFloat(creditAmount);
+    if (!creditDescription.trim()) {
+      toast.error("Description is required");
+      return;
+    }
+    if (!isFinite(amount) || amount <= 0) {
+      toast.error("Amount must be greater than 0");
+      return;
+    }
+    addCreditMutation.mutate(
+      { id, data: { description: creditDescription.trim(), amount } },
+      {
+        onSuccess: () => {
+          toast.success("Credit added");
+          setCreditOpen(false);
+          setCreditDescription("");
+          setCreditAmount("");
+          refreshInvoice();
+        },
+        onError: () => toast.error("Failed to add credit"),
+      },
+    );
+  };
+
+  const handleDeleteCredit = (creditId: string) => {
+    if (!confirm("Remove this credit?")) return;
+    deleteCreditMutation.mutate(
+      { id, creditId },
+      {
+        onSuccess: () => {
+          toast.success("Credit removed");
+          refreshInvoice();
+        },
+        onError: () => toast.error("Failed to remove credit"),
+      },
+    );
+  };
 
   // Group line items by task; split into billable and complimentary sections
   const { billableGroups, complimentaryGroups, complimentarySeconds } = useMemo(() => {
@@ -375,19 +431,112 @@ export default function InvoiceDetail() {
           </div>
         )}
 
+        {/* Credits / Deductions */}
+        {invoice.credits.length > 0 && (
+          <div className="mt-12">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Credits / Deductions</h2>
+            </div>
+            <table className="w-full">
+              <tbody>
+                {invoice.credits.map((c) => (
+                  <tr key={c.id} className="border-b border-gray-100 last:border-b-0">
+                    <td className="py-2 text-sm text-gray-700">{c.description}</td>
+                    <td className="py-2 text-right font-mono text-sm text-red-600 whitespace-nowrap">
+                      −{formatCurrency(c.amount)}
+                    </td>
+                    <td className="py-2 pl-3 text-right w-10 print:hidden">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-gray-400 hover:text-destructive"
+                        onClick={() => handleDeleteCredit(c.id)}
+                        disabled={deleteCreditMutation.isPending}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Totals */}
-        <div className="flex flex-col items-end border-t-4 border-gray-900 pt-6">
-          <div className="w-full max-w-sm space-y-4">
+        <div className="flex flex-col items-end border-t-4 border-gray-900 pt-6 mt-8">
+          <div className="w-full max-w-sm space-y-3">
             <div className="flex justify-between text-gray-600">
               <span className="font-bold text-sm uppercase tracking-widest">Total Hours</span>
               <span className="font-mono text-lg">{formatDurationDecimal(invoice.totalSeconds)}</span>
             </div>
+            <div className="flex justify-between text-gray-700">
+              <span className="font-bold text-sm uppercase tracking-widest">Subtotal</span>
+              <span className="font-mono text-lg">{formatCurrency(invoice.subtotalAmount)}</span>
+            </div>
+            {invoice.creditsAmount > 0 && (
+              <div className="flex justify-between text-red-600">
+                <span className="font-bold text-sm uppercase tracking-widest">Credits</span>
+                <span className="font-mono text-lg">−{formatCurrency(invoice.creditsAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-end border-t border-gray-200 pt-4">
-              <span className="font-bold text-lg uppercase tracking-widest text-gray-900">Total Due</span>
+              <span className="font-bold text-lg uppercase tracking-widest text-gray-900">Total Owed</span>
               <span className="font-mono text-3xl font-bold text-gray-900">{formatCurrency(invoice.totalAmount)}</span>
+            </div>
+            <div className="pt-2 print:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setCreditOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" /> Add Credit / Deduction
+              </Button>
             </div>
           </div>
         </div>
+
+        {/* Add Credit Dialog */}
+        <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Credit / Deduction</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="credit-description">Description</Label>
+                <Input
+                  id="credit-description"
+                  value={creditDescription}
+                  onChange={(e) => setCreditDescription(e.target.value)}
+                  placeholder="e.g. Early payment discount"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="credit-amount">Amount to deduct ($)</Label>
+                <Input
+                  id="credit-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={creditAmount}
+                  onChange={(e) => setCreditAmount(e.target.value)}
+                  placeholder="50.00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This amount will be subtracted from the invoice subtotal.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreditOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddCredit} disabled={addCreditMutation.isPending}>
+                {addCreditMutation.isPending ? "Adding..." : "Add Credit"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Notes */}
         {invoice.notes && (

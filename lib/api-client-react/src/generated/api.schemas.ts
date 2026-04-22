@@ -126,6 +126,20 @@ export interface InvoiceLineItem {
   noCharge: boolean;
 }
 
+export interface InvoiceCredit {
+  id: string;
+  description: string;
+  amount: number;
+  createdAt: string;
+}
+
+export interface AddInvoiceCreditBody {
+  /** @minLength 1 */
+  description: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+}
+
 export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
 
 export const InvoiceStatus = {
@@ -143,8 +157,11 @@ export interface Invoice {
   paidAt?: string | null;
   notes?: string;
   totalSeconds: number;
+  subtotalAmount: number;
+  creditsAmount: number;
   totalAmount: number;
   lineItems: InvoiceLineItem[];
+  credits: InvoiceCredit[];
 }
 
 export type InvoiceSummaryStatus =

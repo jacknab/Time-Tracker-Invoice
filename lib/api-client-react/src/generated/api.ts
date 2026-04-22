@@ -18,6 +18,7 @@ import type {
 
 import type {
   ActiveEntryResponse,
+  AddInvoiceCreditBody,
   CreateInvoiceBody,
   CreateManualEntryBody,
   CreateTaskBody,
@@ -1688,6 +1689,178 @@ export const useUpdateInvoiceStatus = <
   TContext
 > => {
   return useMutation(getUpdateInvoiceStatusMutationOptions(options));
+};
+
+/**
+ * @summary Add a credit (deduction) to an invoice
+ */
+export const getAddInvoiceCreditUrl = (id: string) => {
+  return `/api/invoices/${id}/credits`;
+};
+
+export const addInvoiceCredit = async (
+  id: string,
+  addInvoiceCreditBody: AddInvoiceCreditBody,
+  options?: RequestInit,
+): Promise<Invoice> => {
+  return customFetch<Invoice>(getAddInvoiceCreditUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addInvoiceCreditBody),
+  });
+};
+
+export const getAddInvoiceCreditMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addInvoiceCredit>>,
+    TError,
+    { id: string; data: BodyType<AddInvoiceCreditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addInvoiceCredit>>,
+  TError,
+  { id: string; data: BodyType<AddInvoiceCreditBody> },
+  TContext
+> => {
+  const mutationKey = ["addInvoiceCredit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addInvoiceCredit>>,
+    { id: string; data: BodyType<AddInvoiceCreditBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addInvoiceCredit(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddInvoiceCreditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addInvoiceCredit>>
+>;
+export type AddInvoiceCreditMutationBody = BodyType<AddInvoiceCreditBody>;
+export type AddInvoiceCreditMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a credit (deduction) to an invoice
+ */
+export const useAddInvoiceCredit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addInvoiceCredit>>,
+    TError,
+    { id: string; data: BodyType<AddInvoiceCreditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addInvoiceCredit>>,
+  TError,
+  { id: string; data: BodyType<AddInvoiceCreditBody> },
+  TContext
+> => {
+  return useMutation(getAddInvoiceCreditMutationOptions(options));
+};
+
+/**
+ * @summary Remove a credit from an invoice
+ */
+export const getDeleteInvoiceCreditUrl = (id: string, creditId: string) => {
+  return `/api/invoices/${id}/credits/${creditId}`;
+};
+
+export const deleteInvoiceCredit = async (
+  id: string,
+  creditId: string,
+  options?: RequestInit,
+): Promise<Invoice> => {
+  return customFetch<Invoice>(getDeleteInvoiceCreditUrl(id, creditId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteInvoiceCreditMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInvoiceCredit>>,
+    TError,
+    { id: string; creditId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteInvoiceCredit>>,
+  TError,
+  { id: string; creditId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteInvoiceCredit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteInvoiceCredit>>,
+    { id: string; creditId: string }
+  > = (props) => {
+    const { id, creditId } = props ?? {};
+
+    return deleteInvoiceCredit(id, creditId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteInvoiceCreditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteInvoiceCredit>>
+>;
+
+export type DeleteInvoiceCreditMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a credit from an invoice
+ */
+export const useDeleteInvoiceCredit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInvoiceCredit>>,
+    TError,
+    { id: string; creditId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteInvoiceCredit>>,
+  TError,
+  { id: string; creditId: string },
+  TContext
+> => {
+  return useMutation(getDeleteInvoiceCreditMutationOptions(options));
 };
 
 /**

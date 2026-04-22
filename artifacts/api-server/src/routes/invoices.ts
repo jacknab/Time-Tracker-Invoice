@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import {
   db,
+  invoiceCreditsTable,
   invoicesTable,
   tasksTable,
   timeEntriesTable,
@@ -45,7 +46,16 @@ async function loadInvoice(id: string) {
     .innerJoin(tasksTable, eq(tasksTable.id, timeEntriesTable.taskId))
     .where(eq(timeEntriesTable.invoiceId, id))
     .orderBy(timeEntriesTable.startedAt);
+  const credits = await db
+    .select()
+    .from(invoiceCreditsTable)
+    .where(eq(invoiceCreditsTable.invoiceId, id))
+    .orderBy(invoiceCreditsTable.createdAt);
   const rate = Number(inv.hourlyRate);
+  const lineItems = rows.map((r) => formatLineItem(r, rate));
+  const subtotalAmount = lineItems.reduce((sum, li) => sum + li.amount, 0);
+  const creditsAmount = credits.reduce((sum, c) => sum + Number(c.amount), 0);
+  const totalAmount = Math.max(0, +(subtotalAmount - creditsAmount).toFixed(2));
   return {
     id: inv.id,
     invoiceNumber: inv.invoiceNumber,
@@ -56,9 +66,27 @@ async function loadInvoice(id: string) {
     paidAt: inv.paidAt ? inv.paidAt.toISOString() : null,
     notes: inv.notes,
     totalSeconds: inv.totalSeconds,
-    totalAmount: Number(inv.totalAmount),
-    lineItems: rows.map((r) => formatLineItem(r, rate)),
+    subtotalAmount: +subtotalAmount.toFixed(2),
+    creditsAmount: +creditsAmount.toFixed(2),
+    totalAmount,
+    lineItems,
+    credits: credits.map((c) => ({
+      id: c.id,
+      description: c.description,
+      amount: Number(c.amount),
+      createdAt: c.createdAt.toISOString(),
+    })),
   };
+}
+
+async function recalcInvoiceTotal(id: string) {
+  const result = await loadInvoice(id);
+  if (!result) return null;
+  await db
+    .update(invoicesTable)
+    .set({ totalAmount: result.totalAmount.toString() })
+    .where(eq(invoicesTable.id, id));
+  return result;
 }
 
 router.get("/invoices", async (_req, res) => {
@@ -198,6 +226,42 @@ router.patch("/invoices/:id/status", async (req, res) => {
     return;
   }
   res.json(result);
+});
+
+router.post("/invoices/:id/credits", async (req, res) => {
+  const body = zodSchemas.AddInvoiceCreditBody.parse(req.body);
+  const [inv] = await db
+    .select({ id: invoicesTable.id })
+    .from(invoicesTable)
+    .where(eq(invoicesTable.id, req.params.id));
+  if (!inv) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  await db.insert(invoiceCreditsTable).values({
+    invoiceId: req.params.id,
+    description: body.description,
+    amount: body.amount.toString(),
+  });
+  const result = await recalcInvoiceTotal(req.params.id);
+  res.status(200).json(result);
+});
+
+router.delete("/invoices/:id/credits/:creditId", async (req, res) => {
+  await db
+    .delete(invoiceCreditsTable)
+    .where(
+      and(
+        eq(invoiceCreditsTable.id, req.params.creditId),
+        eq(invoiceCreditsTable.invoiceId, req.params.id),
+      ),
+    );
+  const result = await recalcInvoiceTotal(req.params.id);
+  if (!result) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  res.status(200).json(result);
 });
 
 export default router;

@@ -7,10 +7,12 @@
  */
 
 export * from "./activeEntryResponse";
+export * from "./addInvoiceCreditBody";
 export * from "./createInvoiceBody";
 export * from "./createManualEntryBody";
 export * from "./createTaskBody";
 export * from "./invoice";
+export * from "./invoiceCredit";
 export * from "./invoiceLineItem";
 export * from "./invoicePreview";
 export * from "./invoiceStatus";
