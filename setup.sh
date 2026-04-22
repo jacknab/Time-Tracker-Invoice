@@ -783,6 +783,19 @@ do_step_7() {
     fi
 
     success "Schema pushed."
+
+    # ── Seed initial data (idempotent) ──────────────────────────────────────
+    local SEED_FILE="${APP_DIR}/lib/db/seed.sql"
+    if [ -f "${SEED_FILE}" ]; then
+        info "Seeding initial data from lib/db/seed.sql..."
+        if psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${SEED_FILE}" >/dev/null; then
+            success "Seed data applied (settings, task, time entries)."
+        else
+            warn "Seed step reported errors — continuing anyway."
+        fi
+    else
+        info "No seed.sql found at ${SEED_FILE} — skipping seed."
+    fi
 }
 
 # ── Step 8 – Production build ─────────────────────────────────────────────────
