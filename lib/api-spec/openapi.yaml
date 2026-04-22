@@ -408,7 +408,7 @@ components:
           enum: [active, completed, archived]
     TimeEntry:
       type: object
-      required: [id, taskId, description, startedAt, durationSeconds, isRunning]
+      required: [id, taskId, description, startedAt, durationSeconds, isRunning, noCharge]
       properties:
         id: { type: string }
         taskId: { type: string }
@@ -419,6 +419,7 @@ components:
         durationSeconds: { type: integer }
         isRunning: { type: boolean }
         invoiceId: { type: string, nullable: true }
+        noCharge: { type: boolean }
     StartTimerBody:
       type: object
       required: [description]
@@ -431,12 +432,14 @@ components:
         description: { type: string, minLength: 1 }
         startedAt: { type: string, format: date-time }
         endedAt: { type: string, format: date-time }
+        noCharge: { type: boolean }
     UpdateEntryBody:
       type: object
       properties:
         description: { type: string, minLength: 1 }
         startedAt: { type: string, format: date-time }
         endedAt: { type: string, format: date-time }
+        noCharge: { type: boolean }
     ActiveEntryResponse:
       type: object
       properties:
@@ -466,7 +469,7 @@ components:
           nullable: true
     InvoiceLineItem:
       type: object
-      required: [id, taskId, taskTitle, description, startedAt, endedAt, durationSeconds, amount]
+      required: [id, taskId, taskTitle, description, startedAt, endedAt, durationSeconds, amount, noCharge]
       properties:
         id: { type: string }
         taskId: { type: string }
@@ -476,6 +479,7 @@ components:
         endedAt: { type: string, format: date-time }
         durationSeconds: { type: integer }
         amount: { type: number }
+        noCharge: { type: boolean }
     Invoice:
       type: object
       required: [id, invoiceNumber, clientName, hourlyRate, status, createdAt, totalSeconds, totalAmount, lineItems]

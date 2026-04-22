@@ -22,23 +22,31 @@ export default function InvoiceDetail() {
   const { data: invoice, isLoading } = useGetInvoice(id, { query: { enabled: !!id, queryKey: getGetInvoiceQueryKey(id) } });
   const updateStatusMutation = useUpdateInvoiceStatus();
 
-  // Group line items by task for cleaner presentation
-  const groupedItems = useMemo(() => {
-    if (!invoice) return {};
-    return invoice.lineItems.reduce((acc, item) => {
-      if (!acc[item.taskId]) {
-        acc[item.taskId] = {
-          taskTitle: item.taskTitle,
-          totalDuration: 0,
-          totalAmount: 0,
-          items: []
-        };
-      }
-      acc[item.taskId].totalDuration += item.durationSeconds;
-      acc[item.taskId].totalAmount += item.amount;
-      acc[item.taskId].items.push(item);
-      return acc;
-    }, {} as Record<string, { taskTitle: string, totalDuration: number, totalAmount: number, items: any[] }>);
+  // Group line items by task; split into billable and complimentary sections
+  const { billableGroups, complimentaryGroups, complimentarySeconds } = useMemo(() => {
+    const groupBy = (items: any[]) =>
+      items.reduce((acc, item) => {
+        if (!acc[item.taskId]) {
+          acc[item.taskId] = {
+            taskTitle: item.taskTitle,
+            totalDuration: 0,
+            totalAmount: 0,
+            items: [],
+          };
+        }
+        acc[item.taskId].totalDuration += item.durationSeconds;
+        acc[item.taskId].totalAmount += item.amount;
+        acc[item.taskId].items.push(item);
+        return acc;
+      }, {} as Record<string, { taskTitle: string; totalDuration: number; totalAmount: number; items: any[] }>);
+    if (!invoice) return { billableGroups: {}, complimentaryGroups: {}, complimentarySeconds: 0 };
+    const billable = invoice.lineItems.filter((i) => !i.noCharge);
+    const comp = invoice.lineItems.filter((i) => i.noCharge);
+    return {
+      billableGroups: groupBy(billable),
+      complimentaryGroups: groupBy(comp),
+      complimentarySeconds: comp.reduce((s, i) => s + i.durationSeconds, 0),
+    };
   }, [invoice]);
 
   const handlePrint = () => {
@@ -207,7 +215,7 @@ export default function InvoiceDetail() {
               </tr>
             </thead>
             <tbody>
-              {Object.values(groupedItems).map((group: any, i) => (
+              {Object.values(billableGroups).map((group: any, i) => (
                 <React.Fragment key={i}>
                   {/* Task Header */}
                   <tr className="bg-gray-50/50">
@@ -241,6 +249,55 @@ export default function InvoiceDetail() {
             </tbody>
           </table>
         </div>
+
+        {/* Complimentary / No Charge Section */}
+        {Object.keys(complimentaryGroups).length > 0 && (
+          <div className="mb-16">
+            <div className="mb-4">
+              <h2 className="text-lg font-bold tracking-widest uppercase text-gray-900">Complimentary / No Charge</h2>
+              <p className="text-sm text-gray-500 mt-1 italic">Bug fixes and miscellaneous time provided at no cost.</p>
+            </div>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-y-2 border-gray-300 text-sm">
+                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest">Description</th>
+                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest text-right">Hours</th>
+                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.values(complimentaryGroups).map((group: any, i) => (
+                  <React.Fragment key={i}>
+                    <tr className="bg-gray-50/50">
+                      <td colSpan={3} className="py-2 px-2 font-bold text-gray-900 border-b border-gray-100 text-sm">
+                        Task: {group.taskTitle}
+                      </td>
+                    </tr>
+                    {group.items.map((item: any, j: number) => (
+                      <tr key={j} className="border-b border-gray-100 last:border-b-0">
+                        <td className="py-3 px-4 pl-6 text-gray-600 text-sm">
+                          <div className="font-medium">{item.description}</div>
+                          <div className="text-xs text-gray-400 mt-1">{formatDate(item.startedAt)}</div>
+                        </td>
+                        <td className="py-3 px-2 text-right font-mono text-sm text-gray-600">
+                          {formatDurationDecimal(item.durationSeconds)}
+                        </td>
+                        <td className="py-3 px-2 text-right font-mono text-sm text-gray-500 italic">
+                          {formatCurrency(0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+                <tr className="border-t-2 border-gray-300">
+                  <td className="py-2 text-right text-xs font-bold text-gray-500 uppercase pr-4">Complimentary Total</td>
+                  <td className="py-2 text-right font-mono font-bold text-sm">{formatDurationDecimal(complimentarySeconds)}</td>
+                  <td className="py-2 text-right font-mono font-bold text-sm">{formatCurrency(0)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Totals */}
         <div className="flex flex-col items-end border-t-4 border-gray-900 pt-6">

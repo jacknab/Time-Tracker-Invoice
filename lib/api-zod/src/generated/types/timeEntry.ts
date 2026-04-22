@@ -16,4 +16,5 @@ export interface TimeEntry {
   durationSeconds: number;
   isRunning: boolean;
   invoiceId?: string | null;
+  noCharge: boolean;
 }

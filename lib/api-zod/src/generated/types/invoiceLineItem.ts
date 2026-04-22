@@ -15,4 +15,5 @@ export interface InvoiceLineItem {
   endedAt: Date;
   durationSeconds: number;
   amount: number;
+  noCharge: boolean;
 }

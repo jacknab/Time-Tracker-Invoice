@@ -121,6 +121,7 @@ export const ListTaskEntriesResponseItem = zod.object({
   durationSeconds: zod.number(),
   isRunning: zod.boolean(),
   invoiceId: zod.string().nullish(),
+  noCharge: zod.boolean(),
 });
 export const ListTaskEntriesResponse = zod.array(ListTaskEntriesResponseItem);
 
@@ -135,6 +136,7 @@ export const CreateManualEntryBody = zod.object({
   description: zod.string().min(1),
   startedAt: zod.coerce.date(),
   endedAt: zod.coerce.date(),
+  noCharge: zod.boolean().optional(),
 });
 
 /**
@@ -165,6 +167,7 @@ export const StopTimerResponse = zod.object({
   durationSeconds: zod.number(),
   isRunning: zod.boolean(),
   invoiceId: zod.string().nullish(),
+  noCharge: zod.boolean(),
 });
 
 /**
@@ -178,6 +181,7 @@ export const UpdateEntryBody = zod.object({
   description: zod.string().min(1).optional(),
   startedAt: zod.coerce.date().optional(),
   endedAt: zod.coerce.date().optional(),
+  noCharge: zod.boolean().optional(),
 });
 
 export const UpdateEntryResponse = zod.object({
@@ -190,6 +194,7 @@ export const UpdateEntryResponse = zod.object({
   durationSeconds: zod.number(),
   isRunning: zod.boolean(),
   invoiceId: zod.string().nullish(),
+  noCharge: zod.boolean(),
 });
 
 /**
@@ -214,6 +219,7 @@ export const GetActiveEntryResponse = zod.object({
       durationSeconds: zod.number(),
       isRunning: zod.boolean(),
       invoiceId: zod.string().nullish(),
+      noCharge: zod.boolean(),
     })
     .nullish(),
 });
@@ -241,6 +247,7 @@ export const GetSummaryResponse = zod.object({
       durationSeconds: zod.number(),
       isRunning: zod.boolean(),
       invoiceId: zod.string().nullish(),
+      noCharge: zod.boolean(),
     }),
   ),
   activeEntry: zod
@@ -254,6 +261,7 @@ export const GetSummaryResponse = zod.object({
       durationSeconds: zod.number(),
       isRunning: zod.boolean(),
       invoiceId: zod.string().nullish(),
+      noCharge: zod.boolean(),
     })
     .nullable(),
 });
@@ -309,6 +317,7 @@ export const GetInvoiceResponse = zod.object({
       endedAt: zod.coerce.date(),
       durationSeconds: zod.number(),
       amount: zod.number(),
+      noCharge: zod.boolean(),
     }),
   ),
 });
@@ -352,6 +361,7 @@ export const UpdateInvoiceStatusResponse = zod.object({
       endedAt: zod.coerce.date(),
       durationSeconds: zod.number(),
       amount: zod.number(),
+      noCharge: zod.boolean(),
     }),
   ),
 });
@@ -374,6 +384,7 @@ export const PreviewInvoiceResponse = zod.object({
       endedAt: zod.coerce.date(),
       durationSeconds: zod.number(),
       amount: zod.number(),
+      noCharge: zod.boolean(),
     }),
   ),
 });

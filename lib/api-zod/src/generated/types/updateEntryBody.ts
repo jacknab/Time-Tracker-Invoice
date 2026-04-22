@@ -11,4 +11,5 @@ export interface UpdateEntryBody {
   description?: string;
   startedAt?: Date;
   endedAt?: Date;
+  noCharge?: boolean;
 }

@@ -28,7 +28,8 @@ function formatLineItem(
     startedAt: row.entry.startedAt.toISOString(),
     endedAt: (row.entry.endedAt ?? row.entry.startedAt).toISOString(),
     durationSeconds: sec,
-    amount: computeAmount(sec, hourlyRate),
+    amount: row.entry.noCharge ? 0 : computeAmount(sec, hourlyRate),
+    noCharge: row.entry.noCharge,
   };
 }
 
@@ -102,7 +103,7 @@ router.get("/invoices/preview", async (_req, res) => {
     .orderBy(timeEntriesTable.startedAt);
   const lineItems = rows.map((r) => formatLineItem(r, settings.hourlyRate));
   const totalSeconds = lineItems.reduce(
-    (sum, li) => sum + li.durationSeconds,
+    (sum, li) => (li.noCharge ? sum : sum + li.durationSeconds),
     0,
   );
   res.json({
@@ -131,7 +132,10 @@ router.post("/invoices", async (req, res) => {
     return;
   }
   const totalSeconds = rows.reduce(
-    (sum, r) => sum + durationSeconds(r.entry.startedAt, r.entry.endedAt),
+    (sum, r) =>
+      r.entry.noCharge
+        ? sum
+        : sum + durationSeconds(r.entry.startedAt, r.entry.endedAt),
     0,
   );
   const totalAmount = computeAmount(totalSeconds, settings.hourlyRate);

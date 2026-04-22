@@ -134,6 +134,7 @@ router.get("/tasks/:id/entries", async (req, res) => {
       durationSeconds: durationSeconds(e.startedAt, e.endedAt),
       isRunning: e.endedAt === null,
       invoiceId: e.invoiceId,
+      noCharge: e.noCharge,
     })),
   );
 });
@@ -161,6 +162,7 @@ router.post("/tasks/:id/entries", async (req, res) => {
       description: body.description,
       startedAt,
       endedAt,
+      noCharge: body.noCharge ?? false,
     })
     .returning();
   res.status(201).json({
@@ -173,6 +175,7 @@ router.post("/tasks/:id/entries", async (req, res) => {
     durationSeconds: durationSeconds(entry.startedAt, entry.endedAt),
     isRunning: false,
     invoiceId: null,
+    noCharge: entry.noCharge,
   });
 });
 
@@ -209,6 +212,7 @@ router.post("/tasks/:id/start", async (req, res) => {
     durationSeconds: 0,
     isRunning: true,
     invoiceId: null,
+    noCharge: entry.noCharge,
   });
 });
 

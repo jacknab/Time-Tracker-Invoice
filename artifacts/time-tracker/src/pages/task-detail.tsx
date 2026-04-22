@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatDurationParts, formatDateTime } from "@/lib/format";
 import { ArrowLeft, Play, Square, MoreVertical, Pencil, Trash2, CheckCircle2, Clock, Plus } from "lucide-react";
@@ -284,17 +285,19 @@ function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
   const [editDesc, setEditDesc] = useState(entry.description);
   const [editStart, setEditStart] = useState(toLocalInput(entry.startedAt));
   const [editEnd, setEditEnd] = useState(toLocalInput(entry.endedAt));
+  const [editNoCharge, setEditNoCharge] = useState<boolean>(!!entry.noCharge);
 
   useEffect(() => {
     if (isEditOpen) {
       setEditDesc(entry.description);
       setEditStart(toLocalInput(entry.startedAt));
       setEditEnd(toLocalInput(entry.endedAt));
+      setEditNoCharge(!!entry.noCharge);
     }
   }, [isEditOpen, entry]);
 
   const handleUpdate = () => {
-    const data: { description?: string; startedAt?: string; endedAt?: string } = {};
+    const data: { description?: string; startedAt?: string; endedAt?: string; noCharge?: boolean } = {};
     if (editDesc.trim() && editDesc !== entry.description) data.description = editDesc.trim();
     if (editStart && fromLocalInput(editStart) !== new Date(entry.startedAt).toISOString()) {
       data.startedAt = fromLocalInput(editStart);
@@ -302,6 +305,7 @@ function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
     if (entry.endedAt && editEnd && fromLocalInput(editEnd) !== new Date(entry.endedAt).toISOString()) {
       data.endedAt = fromLocalInput(editEnd);
     }
+    if (editNoCharge !== !!entry.noCharge) data.noCharge = editNoCharge;
     if (Object.keys(data).length === 0) {
       setIsEditOpen(false);
       return;
@@ -351,6 +355,12 @@ function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
               <span className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Invoiced</span>
             </>
           )}
+          {entry.noCharge && (
+            <>
+              <span>•</span>
+              <span className="text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">No Charge</span>
+            </>
+          )}
         </div>
       </div>
       
@@ -392,6 +402,17 @@ function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
                       )}
                     </div>
                   </div>
+                  <label className="flex items-start gap-3 p-3 rounded-md border border-border bg-muted/30 cursor-pointer">
+                    <Checkbox
+                      checked={editNoCharge}
+                      onCheckedChange={(v) => setEditNoCharge(v === true)}
+                      className="mt-0.5"
+                    />
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium">Don't bill — complimentary</div>
+                      <p className="text-xs text-muted-foreground">Appears in a separate "Complimentary / No Charge" section at the bottom of the invoice with $0.00.</p>
+                    </div>
+                  </label>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
@@ -416,6 +437,7 @@ function ManualEntryButton({ taskId, disabled }: { taskId: string; disabled?: bo
   const [desc, setDesc] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [noCharge, setNoCharge] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -427,6 +449,7 @@ function ManualEntryButton({ taskId, disabled }: { taskId: string; disabled?: bo
       setDesc("");
       setStart(fmt(earlier));
       setEnd(fmt(now));
+      setNoCharge(false);
     }
   }, [open]);
 
@@ -448,6 +471,7 @@ function ManualEntryButton({ taskId, disabled }: { taskId: string; disabled?: bo
           description: desc.trim(),
           startedAt: startedAt.toISOString(),
           endedAt: endedAt.toISOString(),
+          noCharge,
         },
       },
       {
@@ -488,6 +512,17 @@ function ManualEntryButton({ taskId, disabled }: { taskId: string; disabled?: bo
               <Input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
             </div>
           </div>
+          <label className="flex items-start gap-3 p-3 rounded-md border border-border bg-muted/30 cursor-pointer">
+            <Checkbox
+              checked={noCharge}
+              onCheckedChange={(v) => setNoCharge(v === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Don't bill — complimentary</div>
+              <p className="text-xs text-muted-foreground">For bug fixes or forgotten time. Appears in a separate "Complimentary / No Charge" section at the bottom of the invoice with $0.00.</p>
+            </div>
+          </label>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

@@ -26,6 +26,7 @@ async function entryWithTitle(entryId: string) {
     durationSeconds: durationSeconds(row.entry.startedAt, row.entry.endedAt),
     isRunning: row.entry.endedAt === null,
     invoiceId: row.entry.invoiceId,
+    noCharge: row.entry.noCharge,
   };
 }
 
@@ -54,6 +55,7 @@ router.patch("/entries/:entryId", async (req, res) => {
   if (body.description !== undefined) updates.description = body.description;
   if (body.startedAt !== undefined) updates.startedAt = new Date(body.startedAt);
   if (body.endedAt !== undefined) updates.endedAt = new Date(body.endedAt);
+  if (body.noCharge !== undefined) updates.noCharge = body.noCharge;
   if (
     updates.startedAt instanceof Date &&
     updates.endedAt instanceof Date &&
@@ -106,6 +108,7 @@ router.get("/entries/active", async (_req, res) => {
       durationSeconds: durationSeconds(row.entry.startedAt, null),
       isRunning: true,
       invoiceId: row.entry.invoiceId,
+      noCharge: row.entry.noCharge,
     },
   });
 });

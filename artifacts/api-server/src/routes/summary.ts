@@ -22,7 +22,7 @@ router.get("/summary", async (_req, res) => {
   for (const r of entries) {
     const sec = durationSeconds(r.entry.startedAt, r.entry.endedAt);
     totalSeconds += sec;
-    if (!r.entry.invoiceId) unbilledSeconds += sec;
+    if (!r.entry.invoiceId && !r.entry.noCharge) unbilledSeconds += sec;
     if (r.entry.endedAt === null && !activeEntry) {
       activeEntry = toEntry(r);
     }
@@ -70,6 +70,7 @@ function toEntry(r: {
     durationSeconds: durationSeconds(r.entry.startedAt, r.entry.endedAt),
     isRunning: r.entry.endedAt === null,
     invoiceId: r.entry.invoiceId,
+    noCharge: r.entry.noCharge,
   };
 }
 

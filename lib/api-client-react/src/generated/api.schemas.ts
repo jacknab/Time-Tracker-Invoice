@@ -73,6 +73,7 @@ export interface TimeEntry {
   durationSeconds: number;
   isRunning: boolean;
   invoiceId?: string | null;
+  noCharge: boolean;
 }
 
 export interface StartTimerBody {
@@ -85,6 +86,7 @@ export interface CreateManualEntryBody {
   description: string;
   startedAt: string;
   endedAt: string;
+  noCharge?: boolean;
 }
 
 export interface UpdateEntryBody {
@@ -92,6 +94,7 @@ export interface UpdateEntryBody {
   description?: string;
   startedAt?: string;
   endedAt?: string;
+  noCharge?: boolean;
 }
 
 export interface ActiveEntryResponse {
@@ -120,6 +123,7 @@ export interface InvoiceLineItem {
   endedAt: string;
   durationSeconds: number;
   amount: number;
+  noCharge: boolean;
 }
 
 export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];

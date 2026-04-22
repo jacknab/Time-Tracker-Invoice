@@ -11,4 +11,5 @@ export interface CreateManualEntryBody {
   description: string;
   startedAt: Date;
   endedAt: Date;
+  noCharge?: boolean;
 }

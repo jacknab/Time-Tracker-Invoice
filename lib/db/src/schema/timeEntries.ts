@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tasksTable } from "./tasks";
 import { invoicesTable } from "./invoices";
 
@@ -15,6 +15,7 @@ export const timeEntriesTable = pgTable("time_entries", {
   invoiceId: uuid("invoice_id").references(() => invoicesTable.id, {
     onDelete: "set null",
   }),
+  noCharge: boolean("no_charge").notNull().default(false),
 });
 
 export type TimeEntryRow = typeof timeEntriesTable.$inferSelect;
