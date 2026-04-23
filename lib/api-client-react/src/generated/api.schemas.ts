@@ -211,6 +211,9 @@ export interface UpdateInvoiceStatusBody {
 export interface Settings {
   clientName: string;
   hourlyRate: number;
+  businessName: string | null;
+  businessEmail: string | null;
+  businessPhone: string | null;
 }
 
 export interface UpdateSettingsBody {
@@ -218,4 +221,7 @@ export interface UpdateSettingsBody {
   clientName?: string;
   /** @exclusiveMinimum 0 */
   hourlyRate?: number;
+  businessName?: string | null;
+  businessEmail?: string | null;
+  businessPhone?: string | null;
 }

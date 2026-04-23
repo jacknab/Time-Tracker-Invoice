@@ -1,6 +1,7 @@
 import { useRoute, Link } from "wouter";
 import {
   useGetInvoice,
+  useGetSettings,
   useUpdateInvoiceStatus,
   useAddInvoiceCredit,
   useDeleteInvoiceCredit,
@@ -33,6 +34,7 @@ export default function InvoiceDetail() {
   const queryClient = useQueryClient();
 
   const { data: invoice, isLoading } = useGetInvoice(id, { query: { enabled: !!id, queryKey: getGetInvoiceQueryKey(id) } });
+  const { data: settings } = useGetSettings();
   const updateStatusMutation = useUpdateInvoiceStatus();
   const addCreditMutation = useAddInvoiceCredit();
   const deleteCreditMutation = useDeleteInvoiceCredit();
@@ -372,8 +374,12 @@ export default function InvoiceDetail() {
           <div className="text-right">
             <div className="mb-8">
               <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">From</p>
-              <p className="font-medium text-lg">Freelance Web Developer</p>
-              <p className="text-gray-600">workshop@example.com</p>
+              <p className="font-medium text-lg">{settings?.businessName || "Your Business Name"}</p>
+              {settings?.businessEmail && <p className="text-gray-600">{settings.businessEmail}</p>}
+              {settings?.businessPhone && <p className="text-gray-600">{settings.businessPhone}</p>}
+              {!settings?.businessName && !settings?.businessEmail && !settings?.businessPhone && (
+                <p className="text-gray-400 text-sm italic print:hidden">Add your business info in Settings →</p>
+              )}
             </div>
             <div>
               <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">Bill To</p>

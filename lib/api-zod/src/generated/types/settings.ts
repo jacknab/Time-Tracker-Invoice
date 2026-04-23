@@ -9,4 +9,7 @@
 export interface Settings {
   clientName: string;
   hourlyRate: number;
+  businessName: string | null;
+  businessEmail: string | null;
+  businessPhone: string | null;
 }

@@ -11,4 +11,7 @@ export interface UpdateSettingsBody {
   clientName?: string;
   /** @exclusiveMinimum 0 */
   hourlyRate?: number;
+  businessName?: string | null;
+  businessEmail?: string | null;
+  businessPhone?: string | null;
 }

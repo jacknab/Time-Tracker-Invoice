@@ -13,6 +13,9 @@ import * as zod from "zod";
 export const GetSettingsResponse = zod.object({
   clientName: zod.string(),
   hourlyRate: zod.number(),
+  businessName: zod.string().nullable(),
+  businessEmail: zod.string().nullable(),
+  businessPhone: zod.string().nullable(),
 });
 
 /**
@@ -27,11 +30,17 @@ export const UpdateSettingsBody = zod.object({
     .number()
     .gt(updateSettingsBodyHourlyRateExclusiveMin)
     .optional(),
+  businessName: zod.string().nullish(),
+  businessEmail: zod.string().nullish(),
+  businessPhone: zod.string().nullish(),
 });
 
 export const UpdateSettingsResponse = zod.object({
   clientName: zod.string(),
   hourlyRate: zod.number(),
+  businessName: zod.string().nullable(),
+  businessEmail: zod.string().nullable(),
+  businessPhone: zod.string().nullable(),
 });
 
 /**

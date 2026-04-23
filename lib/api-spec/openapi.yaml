@@ -604,12 +604,18 @@ components:
           enum: [unpaid, paid]
     Settings:
       type: object
-      required: [clientName, hourlyRate]
+      required: [clientName, hourlyRate, businessName, businessEmail, businessPhone]
       properties:
         clientName: { type: string }
         hourlyRate: { type: number }
+        businessName: { type: string, nullable: true }
+        businessEmail: { type: string, nullable: true }
+        businessPhone: { type: string, nullable: true }
     UpdateSettingsBody:
       type: object
       properties:
         clientName: { type: string, minLength: 1 }
         hourlyRate: { type: number, exclusiveMinimum: 0 }
+        businessName: { type: string, nullable: true }
+        businessEmail: { type: string, nullable: true }
+        businessPhone: { type: string, nullable: true }
