@@ -330,6 +330,9 @@ export default function InvoiceDetail() {
             {invoice.status === 'paid' ? <Circle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
             Mark {invoice.status === 'paid' ? 'Unpaid' : 'Paid'}
           </Button>
+          <Button variant="outline" onClick={() => setCreditOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Add Credit
+          </Button>
           <Button variant="outline" onClick={handleExportCsv} className="gap-2">
             <Download className="w-4 h-4" /> Export CSV
           </Button>
