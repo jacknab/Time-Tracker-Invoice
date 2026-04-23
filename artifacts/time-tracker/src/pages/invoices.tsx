@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   useListInvoices, 
@@ -6,6 +6,7 @@ import {
   usePreviewInvoice,
   useUpdateInvoiceStatus,
   useDeleteInvoice,
+  addInvoiceCredit,
   getListInvoicesQueryKey,
   getGetSummaryQueryKey
 } from "@workspace/api-client-react";
@@ -20,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreVertical } from "lucide-react";
 
+type RestoreData = { invoiceNumber: string; notes: string; credits: { description: string; amount: number }[] };
+
 function GenerateInvoiceModal({ open, onOpenChange }: { open: boolean, onOpenChange: (o: boolean) => void }) {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -27,11 +30,41 @@ function GenerateInvoiceModal({ open, onOpenChange }: { open: boolean, onOpenCha
   const createInvoiceMutation = useCreateInvoice();
   
   const [notes, setNotes] = useState("");
+  const [restore, setRestore] = useState<RestoreData | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const raw = sessionStorage.getItem("pendingInvoiceRestore");
+    if (!raw) {
+      setRestore(null);
+      return;
+    }
+    try {
+      const data = JSON.parse(raw) as RestoreData;
+      setRestore(data);
+      setNotes(data.notes ?? "");
+    } catch {
+      setRestore(null);
+    }
+  }, [open]);
 
   const handleCreate = () => {
     createInvoiceMutation.mutate({ data: { notes } }, {
-      onSuccess: (invoice) => {
-        toast.success("Invoice generated successfully");
+      onSuccess: async (invoice) => {
+        if (restore && restore.credits.length > 0) {
+          for (const c of restore.credits) {
+            try {
+              await addInvoiceCredit(invoice.id, { description: c.description, amount: c.amount });
+            } catch {
+              toast.error(`Couldn't restore credit "${c.description}"`);
+            }
+          }
+          toast.success(`Invoice generated — restored ${restore.credits.length} credit(s)`);
+        } else {
+          toast.success("Invoice generated successfully");
+        }
+        sessionStorage.removeItem("pendingInvoiceRestore");
+        setRestore(null);
         onOpenChange(false);
         queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
@@ -60,6 +93,17 @@ function GenerateInvoiceModal({ open, onOpenChange }: { open: boolean, onOpenCha
         ) : (
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex-1 overflow-y-auto py-4 space-y-6">
+              {restore && (
+                <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-sm">
+                  <p className="font-medium">Restoring from <span className="font-mono">{restore.invoiceNumber}</span></p>
+                  <p className="mt-1 text-xs">
+                    Notes pre-filled.
+                    {restore.credits.length > 0
+                      ? ` ${restore.credits.length} credit(s) will be re-added after generation.`
+                      : " No credits to restore."}
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border border-border">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Hours</p>
@@ -122,6 +166,15 @@ export default function Invoices() {
   const { data: invoices, isLoading } = useListInvoices();
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("restore=1")) {
+      setIsGenerateOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("restore");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
   
   const updateStatusMutation = useUpdateInvoiceStatus();
   const deleteInvoiceMutation = useDeleteInvoice();

@@ -12,6 +12,7 @@ import {
   useCreateManualEntry,
   useListInvoices,
   useDeleteInvoice,
+  getInvoice,
   getGetTaskQueryKey,
   getListTaskEntriesQueryKey,
   getGetSummaryQueryKey,
@@ -57,8 +58,19 @@ export default function TaskDetail() {
     }
   };
 
-  const handleConfirmDeleteInvoice = () => {
+  const handleConfirmDeleteInvoice = async () => {
     if (!unpaidPromptInvoice) return;
+    try {
+      const full = await getInvoice(unpaidPromptInvoice.id);
+      const stash = {
+        invoiceNumber: full.invoiceNumber,
+        notes: full.notes ?? "",
+        credits: (full.credits ?? []).map((c) => ({ description: c.description, amount: c.amount })),
+      };
+      sessionStorage.setItem("pendingInvoiceRestore", JSON.stringify(stash));
+    } catch {
+      sessionStorage.removeItem("pendingInvoiceRestore");
+    }
     deleteInvoiceMutation.mutate(
       { id: unpaidPromptInvoice.id },
       {
@@ -68,7 +80,7 @@ export default function TaskDetail() {
           queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListTaskEntriesQueryKey(id) });
           queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
-          setLocation("/invoices");
+          setLocation("/invoices?restore=1");
         },
         onError: () => toast.error("Failed to delete invoice"),
       },
