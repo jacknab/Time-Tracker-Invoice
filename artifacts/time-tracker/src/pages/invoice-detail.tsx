@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatCurrency, formatDurationDecimal, formatDate } from "@/lib/format";
-import { ArrowLeft, Printer, CheckCircle2, Circle, Download, FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Printer, CheckCircle2, Circle, Download, FileText, Loader2, Plus, Trash2, Link2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -338,6 +338,20 @@ export default function InvoiceDetail() {
           </Button>
           <Button variant="outline" onClick={() => setCreditOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" /> Add Credit
+          </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(window.location.href);
+                toast.success("Invoice link copied");
+              } catch {
+                toast.error("Could not copy link");
+              }
+            }}
+            className="gap-2"
+          >
+            <Link2 className="w-4 h-4" /> Copy Link
           </Button>
           <Button variant="outline" onClick={handleExportCsv} className="gap-2">
             <Download className="w-4 h-4" /> Export CSV
