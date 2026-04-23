@@ -75,9 +75,9 @@ function GenerateInvoiceModal({ open, onOpenChange }: { open: boolean, onOpenCha
                 <h4 className="text-sm font-medium mb-3 border-b border-border pb-2">Line Items Preview</h4>
                 <div className="space-y-3">
                   {preview.lineItems.slice(0, 5).map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm p-3 bg-card rounded border border-card-border">
-                      <div className="flex-1 pr-4">
-                        <p className="font-medium">{item.taskTitle}</p>
+                    <div key={i} className="flex justify-between gap-4 text-sm p-3 bg-card rounded border border-card-border">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{item.taskTitle}</p>
                         <p className="text-muted-foreground text-xs mt-1 truncate">{item.description}</p>
                       </div>
                       <div className="text-right shrink-0">
