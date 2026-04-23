@@ -122,11 +122,14 @@ export default function InvoiceDetail() {
   const itemizedHeaderRef = useRef<HTMLDivElement>(null);
   const itemizedBodyRef = useRef<HTMLDivElement>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   const handleExportPdf = async () => {
     if (!invoice || !mainRef.current) return;
     setPdfLoading(true);
+    setIsCapturing(true);
     try {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
         import("jspdf"),
         import("html2canvas"),
@@ -212,6 +215,7 @@ export default function InvoiceDetail() {
       toast.error("Failed to generate PDF");
     } finally {
       setPdfLoading(false);
+      setIsCapturing(false);
     }
   };
 
@@ -449,17 +453,19 @@ export default function InvoiceDetail() {
                     <td className="py-2 text-right font-mono text-sm text-red-600 whitespace-nowrap">
                       −{formatCurrency(c.amount)}
                     </td>
-                    <td className="py-2 pl-3 text-right w-10 print:hidden">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-gray-400 hover:text-destructive"
-                        onClick={() => handleDeleteCredit(c.id)}
-                        disabled={deleteCreditMutation.isPending}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </td>
+                    {!isCapturing && (
+                      <td className="py-2 pl-3 text-right w-10 print:hidden">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-destructive"
+                          onClick={() => handleDeleteCredit(c.id)}
+                          disabled={deleteCreditMutation.isPending}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -487,16 +493,6 @@ export default function InvoiceDetail() {
             <div className="flex justify-between items-end border-t border-gray-200 pt-4">
               <span className="font-bold text-lg uppercase tracking-widest text-gray-900">Total Owed</span>
               <span className="font-mono text-3xl font-bold text-gray-900">{formatCurrency(invoice.totalAmount)}</span>
-            </div>
-            <div className="pt-2 print:hidden">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setCreditOpen(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" /> Add Credit / Deduction
-              </Button>
             </div>
           </div>
         </div>
