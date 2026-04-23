@@ -10,11 +10,14 @@ import {
   useUpdateTask,
   useDeleteTask,
   useCreateManualEntry,
+  useListInvoices,
+  useDeleteInvoice,
   getGetTaskQueryKey,
   getListTaskEntriesQueryKey,
   getGetSummaryQueryKey,
   getGetActiveEntryQueryKey,
-  getListTasksQueryKey
+  getListTasksQueryKey,
+  getListInvoicesQueryKey
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +46,34 @@ export default function TaskDetail() {
   const stopTimerMutation = useStopTimer();
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
+  const { data: invoices } = useListInvoices({ query: { queryKey: getListInvoicesQueryKey() } });
+  const deleteInvoiceMutation = useDeleteInvoice();
+  const [unpaidPromptInvoice, setUnpaidPromptInvoice] = useState<{ id: string; invoiceNumber: string } | null>(null);
+
+  const promptIfUnpaidInvoice = () => {
+    const unpaid = invoices?.find((inv) => inv.status !== "paid");
+    if (unpaid) {
+      setUnpaidPromptInvoice({ id: unpaid.id, invoiceNumber: unpaid.invoiceNumber });
+    }
+  };
+
+  const handleConfirmDeleteInvoice = () => {
+    if (!unpaidPromptInvoice) return;
+    deleteInvoiceMutation.mutate(
+      { id: unpaidPromptInvoice.id },
+      {
+        onSuccess: () => {
+          toast.success("Invoice deleted — regenerate when ready");
+          setUnpaidPromptInvoice(null);
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListTaskEntriesQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
+          setLocation("/invoices");
+        },
+        onError: () => toast.error("Failed to delete invoice"),
+      },
+    );
+  };
 
   const [description, setDescription] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -113,6 +144,7 @@ export default function TaskDetail() {
         queryClient.invalidateQueries({ queryKey: getGetActiveEntryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
+        promptIfUnpaidInvoice();
       }
     });
   };
@@ -306,7 +338,7 @@ export default function TaskDetail() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground">Time Entries</h3>
-          <ManualEntryButton taskId={id} disabled={task.status === "completed"} />
+          <ManualEntryButton taskId={id} disabled={task.status === "completed"} onCreated={promptIfUnpaidInvoice} />
         </div>
         {isEntriesLoading ? (
           <div className="space-y-3">
@@ -329,6 +361,35 @@ export default function TaskDetail() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!unpaidPromptInvoice} onOpenChange={(o) => !o && setUnpaidPromptInvoice(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unpaid invoice exists</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3 text-sm text-muted-foreground">
+            <p>
+              You have an unpaid invoice <span className="font-mono font-semibold text-foreground">{unpaidPromptInvoice?.invoiceNumber}</span>.
+              Your new time entry won't appear on it.
+            </p>
+            <p>
+              Delete that invoice now so you can regenerate it with this entry included? (Time entries will be released back to unbilled.)
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnpaidPromptInvoice(null)}>
+              Keep Invoice
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteInvoice}
+              disabled={deleteInvoiceMutation.isPending}
+            >
+              {deleteInvoiceMutation.isPending ? "Deleting..." : "Delete & Regenerate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -498,7 +559,7 @@ function EntryRow({ entry, taskId }: { entry: any, taskId: string }) {
   );
 }
 
-function ManualEntryButton({ taskId, disabled }: { taskId: string; disabled?: boolean }) {
+function ManualEntryButton({ taskId, disabled, onCreated }: { taskId: string; disabled?: boolean; onCreated?: () => void }) {
   const queryClient = useQueryClient();
   const createManual = useCreateManualEntry();
   const [open, setOpen] = useState(false);
@@ -550,6 +611,7 @@ function ManualEntryButton({ taskId, disabled }: { taskId: string; disabled?: bo
           queryClient.invalidateQueries({ queryKey: getGetTaskQueryKey(taskId) });
           queryClient.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
+          onCreated?.();
         },
         onError: () => toast.error("Failed to add entry"),
       },
