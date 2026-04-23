@@ -28,7 +28,7 @@ async function getTaskWithStats(id: string) {
   for (const e of entries) {
     const sec = durationSeconds(e.startedAt, e.endedAt);
     total += sec;
-    if (!e.invoiceId) unbilled += sec;
+    if (!e.invoiceId && !e.noCharge) unbilled += sec;
   }
   return {
     id: task.id,
