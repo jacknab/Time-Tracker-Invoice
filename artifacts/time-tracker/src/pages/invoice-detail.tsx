@@ -1,12 +1,12 @@
 import { useRoute, Link } from "wouter";
-import { 
-  useGetInvoice, 
+import {
+  useGetInvoice,
   useUpdateInvoiceStatus,
   useAddInvoiceCredit,
   useDeleteInvoiceCredit,
   getGetInvoiceQueryKey,
   getListInvoicesQueryKey,
-  getGetSummaryQueryKey
+  getGetSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,13 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo, useRef, useState } from "react";
 import React from "react";
+
+type Group = {
+  taskTitle: string;
+  totalDuration: number;
+  totalAmount: number;
+  items: any[];
+};
 
 export default function InvoiceDetail() {
   const [, params] = useRoute("/invoices/:id");
@@ -79,10 +86,9 @@ export default function InvoiceDetail() {
     );
   };
 
-  // Group line items by task; split into billable and complimentary sections
   const { billableGroups, complimentaryGroups, complimentarySeconds } = useMemo(() => {
     const groupBy = (items: any[]) =>
-      items.reduce((acc, item) => {
+      items.reduce((acc: Record<string, Group>, item: any) => {
         if (!acc[item.taskId]) {
           acc[item.taskId] = {
             taskTitle: item.taskTitle,
@@ -95,14 +101,14 @@ export default function InvoiceDetail() {
         acc[item.taskId].totalAmount += item.amount;
         acc[item.taskId].items.push(item);
         return acc;
-      }, {} as Record<string, { taskTitle: string; totalDuration: number; totalAmount: number; items: any[] }>);
-    if (!invoice) return { billableGroups: {}, complimentaryGroups: {}, complimentarySeconds: 0 };
-    const billable = invoice.lineItems.filter((i) => !i.noCharge);
-    const comp = invoice.lineItems.filter((i) => i.noCharge);
+      }, {} as Record<string, Group>);
+    if (!invoice) return { billableGroups: {} as Record<string, Group>, complimentaryGroups: {} as Record<string, Group>, complimentarySeconds: 0 };
+    const billable = invoice.lineItems.filter((i: any) => !i.noCharge);
+    const comp = invoice.lineItems.filter((i: any) => i.noCharge);
     return {
       billableGroups: groupBy(billable),
       complimentaryGroups: groupBy(comp),
-      complimentarySeconds: comp.reduce((s, i) => s + i.durationSeconds, 0),
+      complimentarySeconds: comp.reduce((s: number, i: any) => s + i.durationSeconds, 0),
     };
   }, [invoice]);
 
@@ -110,11 +116,13 @@ export default function InvoiceDetail() {
     window.print();
   };
 
-  const printableRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const itemizedHeaderRef = useRef<HTMLDivElement>(null);
+  const itemizedBodyRef = useRef<HTMLDivElement>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
   const handleExportPdf = async () => {
-    if (!invoice || !printableRef.current) return;
+    if (!invoice || !mainRef.current) return;
     setPdfLoading(true);
     try {
       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
@@ -122,32 +130,43 @@ export default function InvoiceDetail() {
         import("html2canvas"),
       ]);
 
-      const node = printableRef.current;
-      const canvas = await html2canvas(node, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        windowWidth: node.scrollWidth,
-      });
-
       const pdf = new jsPDF({ unit: "pt", format: "letter", orientation: "portrait" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 36; // 0.5"
+      const margin = 36;
       const usableWidth = pageWidth - margin * 2;
-      const ratio = usableWidth / canvas.width;
-      const fullHeightPt = canvas.height * ratio;
+      const usableHeight = pageHeight - margin * 2;
 
-      if (fullHeightPt <= pageHeight - margin * 2) {
-        const imgData = canvas.toDataURL("image/png");
-        pdf.addImage(imgData, "PNG", margin, margin, usableWidth, fullHeightPt);
-      } else {
-        // Slice the tall canvas into page-sized chunks so each PDF page contains
-        // its own piece of the invoice (avoids stretched/blank pages).
-        const pageHeightPx = Math.floor((pageHeight - margin * 2) / ratio);
+      const renderCanvas = (node: HTMLElement) =>
+        html2canvas(node, {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          useCORS: true,
+          windowWidth: node.scrollWidth,
+        });
+
+      const placeSliced = (
+        canvas: HTMLCanvasElement,
+        topReserved: number,
+        onPageStart?: () => void,
+      ) => {
+        const ratio = usableWidth / canvas.width;
+        const fullHeightPt = canvas.height * ratio;
+        const availPt = usableHeight - topReserved;
+        if (fullHeightPt <= availPt) {
+          if (onPageStart) onPageStart();
+          const imgData = canvas.toDataURL("image/png");
+          pdf.addImage(imgData, "PNG", margin, margin + topReserved, usableWidth, fullHeightPt);
+          return;
+        }
+        const sliceHeightPx = Math.floor(availPt / ratio);
         let yOffset = 0;
+        let first = true;
         while (yOffset < canvas.height) {
-          const sliceHeight = Math.min(pageHeightPx, canvas.height - yOffset);
+          if (!first) pdf.addPage();
+          first = false;
+          if (onPageStart) onPageStart();
+          const sliceHeight = Math.min(sliceHeightPx, canvas.height - yOffset);
           const sliceCanvas = document.createElement("canvas");
           sliceCanvas.width = canvas.width;
           sliceCanvas.height = sliceHeight;
@@ -159,10 +178,28 @@ export default function InvoiceDetail() {
             0, 0, canvas.width, sliceHeight,
           );
           const imgData = sliceCanvas.toDataURL("image/png");
-          pdf.addImage(imgData, "PNG", margin, margin, usableWidth, sliceHeight * ratio);
+          pdf.addImage(imgData, "PNG", margin, margin + topReserved, usableWidth, sliceHeight * ratio);
           yOffset += sliceHeight;
-          if (yOffset < canvas.height) pdf.addPage();
         }
+      };
+
+      // --- Page 1+: Main professional invoice ---
+      const mainCanvas = await renderCanvas(mainRef.current);
+      placeSliced(mainCanvas, 0);
+
+      // --- Itemized breakdown pages ---
+      if (itemizedBodyRef.current && itemizedHeaderRef.current) {
+        const headerCanvas = await renderCanvas(itemizedHeaderRef.current);
+        const headerRatio = usableWidth / headerCanvas.width;
+        const headerHeightPt = headerCanvas.height * headerRatio;
+        const headerImg = headerCanvas.toDataURL("image/png");
+
+        const bodyCanvas = await renderCanvas(itemizedBodyRef.current);
+
+        pdf.addPage();
+        placeSliced(bodyCanvas, headerHeightPt + 12, () => {
+          pdf.addImage(headerImg, "PNG", margin, margin, usableWidth, headerHeightPt);
+        });
       }
 
       const filename = `${invoice.invoiceNumber}-${invoice.clientName.replace(/\s+/g, "_")}.pdf`;
@@ -195,7 +232,7 @@ export default function InvoiceDetail() {
       "Rate",
       "Amount",
     ];
-    const rows = invoice.lineItems.map((li) => [
+    const rows = invoice.lineItems.map((li: any) => [
       invoice.invoiceNumber,
       invoice.clientName,
       invoice.status,
@@ -258,6 +295,25 @@ export default function InvoiceDetail() {
 
   if (!invoice) return <div className="text-destructive p-4 bg-destructive/10 rounded-md">Invoice not found.</div>;
 
+  const billableTaskCount = Object.keys(billableGroups).length;
+  const hasComplimentary = Object.keys(complimentaryGroups).length > 0;
+  const hasItemized = invoice.lineItems.length > 0;
+
+  // Compact header used at the top of every itemized page
+  const ItemizedPageHeader = (
+    <div className="flex justify-between items-end pb-4 mb-6 border-b-2 border-gray-900">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-gray-900">Itemized Time Entries</h2>
+        <p className="text-sm text-gray-500 mt-1">Detailed breakdown — supplement to invoice</p>
+      </div>
+      <div className="text-right text-sm">
+        <div className="font-mono font-bold">{invoice.invoiceNumber}</div>
+        <div className="text-gray-600">{invoice.clientName}</div>
+        <div className="text-gray-500 text-xs uppercase tracking-widest mt-1">{formatDate(invoice.createdAt)}</div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center no-print">
@@ -265,8 +321,8 @@ export default function InvoiceDetail() {
           <ArrowLeft className="w-4 h-4 mr-1 group-hover:-translate-x-1 transition-transform" /> Back to Invoices
         </Link>
         <div className="flex gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleToggleStatus}
             disabled={updateStatusMutation.isPending}
             className="gap-2"
@@ -292,8 +348,10 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* Printable Invoice Container */}
-      <div ref={printableRef} className="bg-white text-black p-10 md:p-16 border border-border shadow-md rounded-md print:border-none print:shadow-none print:p-0">
+      {/* ============================================================ */}
+      {/* MAIN INVOICE — professional summary page                      */}
+      {/* ============================================================ */}
+      <div ref={mainRef} className="bg-white text-black p-10 md:p-16 border border-border shadow-md rounded-md print:border-none print:shadow-none print:p-0">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-16 border-b border-gray-200 pb-12">
           <div>
@@ -307,7 +365,7 @@ export default function InvoiceDetail() {
               <p className="text-lg">{formatDate(invoice.createdAt)}</p>
             </div>
           </div>
-          
+
           <div className="text-right">
             <div className="mb-8">
               <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">From</p>
@@ -321,7 +379,7 @@ export default function InvoiceDetail() {
           </div>
         </div>
 
-        {/* Status Badge */}
+        {/* Status / Rate row */}
         <div className="flex justify-between items-end mb-8">
           <div>
             <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">Hourly Rate</p>
@@ -336,110 +394,47 @@ export default function InvoiceDetail() {
           </div>
         </div>
 
-        {/* Itemized Table */}
-        <div className="mb-16">
+        {/* Summary table — one row per task */}
+        <div className="mb-12">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-y-2 border-gray-900 text-sm">
-                <th className="py-4 font-bold text-gray-500 uppercase tracking-widest">Description</th>
+                <th className="py-4 font-bold text-gray-500 uppercase tracking-widest">Task</th>
                 <th className="py-4 font-bold text-gray-500 uppercase tracking-widest text-right">Hours</th>
                 <th className="py-4 font-bold text-gray-500 uppercase tracking-widest text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
-              {Object.values(billableGroups).map((group: any, i) => (
-                <React.Fragment key={i}>
-                  {/* Task Header */}
-                  <tr className="bg-gray-50/50">
-                    <td colSpan={3} className="py-3 px-2 font-bold text-gray-900 border-b border-gray-100">
-                      Task: {group.taskTitle}
-                    </td>
-                  </tr>
-                  {/* Entries */}
-                  {group.items.map((item: any, j: number) => (
-                    <tr key={j} className="border-b border-gray-100 last:border-b-0 group">
-                      <td className="py-3 px-4 pl-6 text-gray-600 text-sm">
-                        <div className="font-medium">{item.description}</div>
-                        <div className="text-xs text-gray-400 mt-1">{formatDate(item.startedAt)}</div>
-                      </td>
-                      <td className="py-3 px-2 text-right font-mono text-sm text-gray-600">
-                        {formatDurationDecimal(item.durationSeconds)}
-                      </td>
-                      <td className="py-3 px-2 text-right font-mono text-sm text-gray-600">
-                        {formatCurrency(item.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Task Subtotal */}
-                  <tr className="border-b-2 border-gray-200">
-                    <td className="py-2 text-right text-xs font-bold text-gray-500 uppercase pr-4">Task Subtotal</td>
-                    <td className="py-2 text-right font-mono font-bold text-sm">{formatDurationDecimal(group.totalDuration)}</td>
-                    <td className="py-2 text-right font-mono font-bold text-sm">{formatCurrency(group.totalAmount)}</td>
-                  </tr>
-                </React.Fragment>
+              {(Object.values(billableGroups) as Group[]).map((group, i) => (
+                <tr key={i} className="border-b border-gray-200">
+                  <td className="py-4 font-medium text-gray-900">{group.taskTitle}</td>
+                  <td className="py-4 text-right font-mono">{formatDurationDecimal(group.totalDuration)}</td>
+                  <td className="py-4 text-right font-mono">{formatCurrency(group.totalAmount)}</td>
+                </tr>
               ))}
+              {hasComplimentary && (
+                <tr className="border-b border-gray-200 text-gray-500 italic">
+                  <td className="py-4">Complimentary / no-charge work</td>
+                  <td className="py-4 text-right font-mono">{formatDurationDecimal(complimentarySeconds)}</td>
+                  <td className="py-4 text-right font-mono">{formatCurrency(0)}</td>
+                </tr>
+              )}
+              {billableTaskCount === 0 && !hasComplimentary && (
+                <tr>
+                  <td colSpan={3} className="py-8 text-center text-gray-400 italic">No billable items</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Complimentary / No Charge Section */}
-        {Object.keys(complimentaryGroups).length > 0 && (
-          <div className="mb-16">
-            <div className="mb-4">
-              <h2 className="text-lg font-bold tracking-widest uppercase text-gray-900">Complimentary / No Charge</h2>
-              <p className="text-sm text-gray-500 mt-1 italic">Bug fixes and miscellaneous time provided at no cost.</p>
-            </div>
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-y-2 border-gray-300 text-sm">
-                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest">Description</th>
-                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest text-right">Hours</th>
-                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.values(complimentaryGroups).map((group: any, i) => (
-                  <React.Fragment key={i}>
-                    <tr className="bg-gray-50/50">
-                      <td colSpan={3} className="py-2 px-2 font-bold text-gray-900 border-b border-gray-100 text-sm">
-                        Task: {group.taskTitle}
-                      </td>
-                    </tr>
-                    {group.items.map((item: any, j: number) => (
-                      <tr key={j} className="border-b border-gray-100 last:border-b-0">
-                        <td className="py-3 px-4 pl-6 text-gray-600 text-sm">
-                          <div className="font-medium">{item.description}</div>
-                          <div className="text-xs text-gray-400 mt-1">{formatDate(item.startedAt)}</div>
-                        </td>
-                        <td className="py-3 px-2 text-right font-mono text-sm text-gray-600">
-                          {formatDurationDecimal(item.durationSeconds)}
-                        </td>
-                        <td className="py-3 px-2 text-right font-mono text-sm text-gray-500 italic">
-                          {formatCurrency(0)}
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-                <tr className="border-t-2 border-gray-300">
-                  <td className="py-2 text-right text-xs font-bold text-gray-500 uppercase pr-4">Complimentary Total</td>
-                  <td className="py-2 text-right font-mono font-bold text-sm">{formatDurationDecimal(complimentarySeconds)}</td>
-                  <td className="py-2 text-right font-mono font-bold text-sm">{formatCurrency(0)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Credits / Deductions */}
+        {/* Credits */}
         {invoice.credits.length > 0 && (
-          <div className="mt-12">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Credits / Deductions</h2>
-            </div>
+          <div className="mt-8 mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Credits / Deductions</h2>
             <table className="w-full">
               <tbody>
-                {invoice.credits.map((c) => (
+                {invoice.credits.map((c: any) => (
                   <tr key={c.id} className="border-b border-gray-100 last:border-b-0">
                     <td className="py-2 text-sm text-gray-700">{c.description}</td>
                     <td className="py-2 text-right font-mono text-sm text-red-600 whitespace-nowrap">
@@ -497,47 +492,6 @@ export default function InvoiceDetail() {
           </div>
         </div>
 
-        {/* Add Credit Dialog */}
-        <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Credit / Deduction</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="credit-description">Description</Label>
-                <Input
-                  id="credit-description"
-                  value={creditDescription}
-                  onChange={(e) => setCreditDescription(e.target.value)}
-                  placeholder="e.g. Early payment discount"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="credit-amount">Amount to deduct ($)</Label>
-                <Input
-                  id="credit-amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={creditAmount}
-                  onChange={(e) => setCreditAmount(e.target.value)}
-                  placeholder="50.00"
-                />
-                <p className="text-xs text-muted-foreground">
-                  This amount will be subtracted from the invoice subtotal.
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreditOpen(false)}>Cancel</Button>
-              <Button onClick={handleAddCredit} disabled={addCreditMutation.isPending}>
-                {addCreditMutation.isPending ? "Adding..." : "Add Credit"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* Notes */}
         {invoice.notes && (
           <div className="mt-16 pt-8 border-t border-gray-200">
@@ -545,7 +499,146 @@ export default function InvoiceDetail() {
             <p className="text-gray-600 italic">{invoice.notes}</p>
           </div>
         )}
+
+        {hasItemized && (
+          <div className="mt-16 pt-8 border-t border-gray-200 text-xs text-gray-500 italic">
+            An itemized breakdown of all time entries is appended on the following pages for your records.
+          </div>
+        )}
       </div>
+
+      {/* ============================================================ */}
+      {/* ITEMIZED BREAKDOWN — appended pages with repeating header     */}
+      {/* ============================================================ */}
+      {hasItemized && (
+        <div className="bg-white text-black p-10 md:p-16 border border-border shadow-md rounded-md print:border-none print:shadow-none print:p-0 page-break-before">
+          {/* Header rendered separately for PDF; visible in screen view too */}
+          <div ref={itemizedHeaderRef}>{ItemizedPageHeader}</div>
+
+          <div ref={itemizedBodyRef}>
+            {/* Single table with repeating thead so print pages each get the column header */}
+            <table className="w-full text-left border-collapse">
+              <thead className="repeat-header">
+                <tr className="border-b-2 border-gray-900 text-xs">
+                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest">Date</th>
+                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest">Description</th>
+                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest text-right whitespace-nowrap">Hours</th>
+                  <th className="py-3 font-bold text-gray-500 uppercase tracking-widest text-right whitespace-nowrap">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Object.values(billableGroups) as Group[]).map((group, i) => (
+                  <React.Fragment key={`b-${i}`}>
+                    <tr className="bg-gray-50">
+                      <td colSpan={4} className="py-2 px-2 font-bold text-gray-900 text-sm">
+                        {group.taskTitle}
+                      </td>
+                    </tr>
+                    {group.items.map((item, j) => (
+                      <tr key={j} className="border-b border-gray-100">
+                        <td className="py-2 px-2 text-xs text-gray-500 whitespace-nowrap align-top">
+                          {formatDate(item.startedAt)}
+                        </td>
+                        <td className="py-2 px-2 text-sm text-gray-700">{item.description}</td>
+                        <td className="py-2 px-2 text-right font-mono text-sm text-gray-700 whitespace-nowrap align-top">
+                          {formatDurationDecimal(item.durationSeconds)}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-sm text-gray-700 whitespace-nowrap align-top">
+                          {formatCurrency(item.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-b-2 border-gray-300">
+                      <td colSpan={2} className="py-2 px-2 text-right text-xs font-bold text-gray-500 uppercase">Subtotal</td>
+                      <td className="py-2 px-2 text-right font-mono text-sm font-bold">{formatDurationDecimal(group.totalDuration)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-sm font-bold">{formatCurrency(group.totalAmount)}</td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+
+                {hasComplimentary && (
+                  <>
+                    <tr>
+                      <td colSpan={4} className="pt-8 pb-2 text-sm font-bold uppercase tracking-widest text-gray-900">
+                        Complimentary / No Charge
+                      </td>
+                    </tr>
+                    {(Object.values(complimentaryGroups) as Group[]).map((group, i) => (
+                      <React.Fragment key={`c-${i}`}>
+                        <tr className="bg-gray-50">
+                          <td colSpan={4} className="py-2 px-2 font-bold text-gray-900 text-sm">
+                            {group.taskTitle}
+                          </td>
+                        </tr>
+                        {group.items.map((item, j) => (
+                          <tr key={j} className="border-b border-gray-100">
+                            <td className="py-2 px-2 text-xs text-gray-500 whitespace-nowrap align-top">
+                              {formatDate(item.startedAt)}
+                            </td>
+                            <td className="py-2 px-2 text-sm text-gray-700">{item.description}</td>
+                            <td className="py-2 px-2 text-right font-mono text-sm text-gray-700 whitespace-nowrap align-top">
+                              {formatDurationDecimal(item.durationSeconds)}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono text-sm text-gray-500 italic whitespace-nowrap align-top">
+                              {formatCurrency(0)}
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    <tr className="border-b-2 border-gray-300">
+                      <td colSpan={2} className="py-2 px-2 text-right text-xs font-bold text-gray-500 uppercase">Complimentary Total</td>
+                      <td className="py-2 px-2 text-right font-mono text-sm font-bold">{formatDurationDecimal(complimentarySeconds)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-sm font-bold">{formatCurrency(0)}</td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Add Credit Dialog */}
+      <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Credit / Deduction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="credit-description">Description</Label>
+              <Input
+                id="credit-description"
+                value={creditDescription}
+                onChange={(e) => setCreditDescription(e.target.value)}
+                placeholder="e.g. Early payment discount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="credit-amount">Amount to deduct ($)</Label>
+              <Input
+                id="credit-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(e.target.value)}
+                placeholder="50.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                This amount will be subtracted from the invoice subtotal.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreditOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddCredit} disabled={addCreditMutation.isPending}>
+              {addCreditMutation.isPending ? "Adding..." : "Add Credit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

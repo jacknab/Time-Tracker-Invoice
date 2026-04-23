@@ -173,4 +173,18 @@
   .no-print {
     display: none !important;
   }
+  .page-break-before {
+    page-break-before: always;
+    break-before: page;
+  }
+  thead.repeat-header {
+    display: table-header-group;
+  }
+  tfoot.repeat-footer {
+    display: table-footer-group;
+  }
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 }
